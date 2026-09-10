@@ -195,8 +195,8 @@ def main() -> None:  # ruff:ignore[complex-structure]
         (S.BR.GREEN if exit_code == 0 else S.BR.RED)(
             "━━━ Output copied to clipboard ━━━ ",
             S.DIM(
-                S.BOLD(str(lines_count)), S.DIM, f" line{'s' if lines_count != 1 else ''} in ",
-                S.BOLD(duration_str), S.DIM, ", exit ", S.BOLD(str(exit_code))
+                S.BOLD(str(lines_count)), f" line{'s' if lines_count != 1 else ''} in ",
+                S.BOLD(duration_str), ", exit ", S.BOLD(str(exit_code))
             )
         ),
         "\n",

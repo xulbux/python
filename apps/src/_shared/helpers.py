@@ -147,7 +147,7 @@ def setup_window_icon(window: ctk.CTk, icon_png: Path) -> Path | None:
 
     else:
         icon_photo: ImageTk.PhotoImage = ImageTk.PhotoImage(pil_icon)
-        window._icon_photo = icon_photo  # Prevent garbage collection.
-        window.after(201, lambda: window.wm_iconphoto(True, icon_photo))
+        window._icon_photo = icon_photo  # Prevent garbage collection.  # pyright:ignore[reportAttributeAccessIssue]
+        window.after(201, lambda: window.wm_iconphoto(True, icon_photo))  # pyright:ignore[reportArgumentType]
 
     return None

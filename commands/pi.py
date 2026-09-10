@@ -221,9 +221,7 @@ def main() -> None:
 
     else:
         S(
-            S.DIM("\nWill take about ", S.BOLD(format_time(estimated_secs)), S.DIM, " to calculate:")
-            if estimated_secs > 1
-            else ""
+            S.DIM("\nWill take about ", S.BOLD(format_time(estimated_secs)), " to calculate:") if estimated_secs > 1 else ""
         ).print()
 
         result = None

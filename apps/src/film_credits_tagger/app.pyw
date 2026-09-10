@@ -25,19 +25,8 @@ from _shared.widgets import MultilineEntry, SingleLineEntry, SpinnerButton, Tool
 
 if TYPE_CHECKING:
     from .._shared.consts import COLORS, POPEN_FLAGS  # ruff:ignore[runtime-import-in-type-checking-block]
-    from .._shared.helpers import (  # ruff:ignore[runtime-import-in-type-checking-block]
-        get_system_theme,
-        resolve_binary,
-        resolve_mono_font,
-        setup_window_icon,
-    )
-    from .._shared.widgets import (  # ruff:ignore[runtime-import-in-type-checking-block]
-        MultilineEntry,
-        SingleLineEntry,
-        SpinnerButton,
-        ToolTip,
-        render_svg_icon,
-    )
+    from .._shared.helpers import get_system_theme, resolve_binary, resolve_mono_font, setup_window_icon  # ruff:ignore[runtime-import-in-type-checking-block]
+    from .._shared.widgets import MultilineEntry, SingleLineEntry, SpinnerButton, ToolTip, render_svg_icon  # ruff:ignore[runtime-import-in-type-checking-block]
 
 from consts import APP_ICON_PNG, COVER_ART_FILE_TYPES, FIELDS, FIELDS_FLAT, VIDEO_FILE_TYPES, FieldEntry, FieldType, ValueType
 from helpers import exiftool_date_to_display, normalize_multi, parse_date, validate_field

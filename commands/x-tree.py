@@ -30,13 +30,7 @@ from _shared.consts import ALL_CATEGORIES, AUTO_IGNORE_FOLDERS, EXT_TO_CAT, NON_
 from _shared.helpers import is_likely_hash_name
 
 if TYPE_CHECKING:
-    from ._shared.consts import (  # ruff:ignore[runtime-import-in-type-checking-block]
-        ALL_CATEGORIES,
-        AUTO_IGNORE_FOLDERS,
-        EXT_TO_CAT,
-        NON_TEXT_EXTS,
-        Category,
-    )
+    from ._shared.consts import ALL_CATEGORIES, AUTO_IGNORE_FOLDERS, EXT_TO_CAT, NON_TEXT_EXTS, Category  # ruff:ignore[runtime-import-in-type-checking-block]
     from ._shared.helpers import is_likely_hash_name  # ruff:ignore[runtime-import-in-type-checking-block]
 
     from xulbux.ansi import AnyStyle

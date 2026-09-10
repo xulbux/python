@@ -492,14 +492,14 @@ def main() -> None:
         return cleaned.split(char) if char in cleaned else cleaned.split()
 
     xx.console.box(
-        S.BR.BLUE(S.BOLD("  WASD ⏶⏴⏷⏵   "), S.BLUE, ":", S.BR.BLUE, " move the player"),
-        S.BR.BLUE(S.BOLD("      H       "), S.BLUE, ":", S.BR.BLUE, " toggle solution"),
-        S.BR.BLUE(S.BOLD("      F       "), S.BLUE, ":", S.BR.BLUE, " finish maze"),
-        S.BR.BLUE(S.BOLD("   Ctrl", S.DIM("+"), S.BOLD, "C     "), S.BLUE, ":", S.BR.BLUE, " exit game"),
+        S.BR.BLUE(S.BOLD("  WASD ⏶⏴⏷⏵   "), S.BLUE(":"), " move the player"),
+        S.BR.BLUE(S.BOLD("      H       "), S.BLUE(":"), " toggle solution"),
+        S.BR.BLUE(S.BOLD("      F       "), S.BLUE(":"), " finish maze"),
+        S.BR.BLUE(S.BOLD("   Ctrl", S.DIM("+"), "C     "), S.BLUE(":"), " exit game"),
         "{hr}",
-        S.BR.BLUE(S.BOLD("    Enter     "), S.BLUE, ":", S.BR.BLUE, " start game normal"),
-        S.BR.BLUE(S.BOLD(" Ctrl", S.DIM("+"), S.BOLD, "Enter   "), S.BLUE, ":", S.BR.BLUE, " start game ASCII "),
-        S.BR.BLUE(S.BOLD("    Space     "), S.BLUE, ":", S.BR.BLUE, " generate to file"),
+        S.BR.BLUE(S.BOLD("    Enter     "), S.BLUE(":"), " start game normal"),
+        S.BR.BLUE(S.BOLD(" Ctrl", S.DIM("+"), "Enter   "), S.BLUE(":"), " start game ASCII "),
+        S.BR.BLUE(S.BOLD("    Space     "), S.BLUE(":"), " generate to file"),
         border_style=S.DIM | S.BR.BLUE,
         start="\n",
         end="\n\n",
@@ -508,9 +508,7 @@ def main() -> None:
     while True:
         key = xx.console.read_key()
 
-        if key in ENTER_KEYS or key.lower() in CTRL_ENTER_KEYS:
-            ascii_mode = key.lower() in CTRL_ENTER_KEYS
-
+        if (ascii_mode := key.lower() in CTRL_ENTER_KEYS) or key in ENTER_KEYS:
             try:
                 with xx.console.raw_mode():
                     while True:
@@ -520,7 +518,7 @@ def main() -> None:
                 print("\x1bc\x1b[<u\x1b[>4;0m\x1b[?25h\x1b[0m", end="", flush=True)
                 raise SystemExit(0) from exc
 
-        elif key in KEYS.SPACE:
+        elif key in KEYS.SPACEBAR:
             width, height = (
                 int(num.strip())
                 for num in smart_split(
@@ -534,6 +532,7 @@ def main() -> None:
                     "x",
                 )
             )
+
             if width < 7 or height < 7:
                 S(S.BR.RED("\n ", S.DIM("✗"), " Maze width/height can't be smaller than ", S.BOLD("7"), "\n")).print()
                 raise SystemExit(1)
@@ -626,7 +625,7 @@ if __name__ == "__main__":
         subtitle="Play a maze game or generate mazes in the terminal",
         controls=[
             ("Enter", "Start game in normal mode"),
-            ("Ctrl+Enter (or A)", "Start game in ASCII mode"),
+            ("Ctrl+Enter", "Start game in ASCII mode"),
             ("Space", "Generate maze to a file"),
             (("WASD", "⏶⏴⏷⏵"), "Move the player"),
             ("H", "Toggle solution path"),
