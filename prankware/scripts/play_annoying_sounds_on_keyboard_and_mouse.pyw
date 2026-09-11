@@ -88,7 +88,7 @@ def init_sounds() -> None:
             base_path = getattr(sys, "_MEIPASS", os.path.abspath("."))
             xx.console.info(f"Using '_MEIPASS' as base path: {base_path}")
         else:
-            base_path = xx.file_sys.get_script_dir()
+            base_path = xx.fs.get_script_dir()
             xx.console.info(f"'_MEIPASS' not found. Using script directory as base path: {base_path}")
         for name, relative_path in SOUNDS.items():
             absolute_path = os.path.normpath(os.path.join(base_path, relative_path))

@@ -6,7 +6,7 @@ Process a list of items and display some statistics.
 """
 
 import xulbux as xx
-from xulbux import ArgumentParser, FormatCodes, S, StyledText
+from xulbux import ArgumentParser, FormatCodes, S
 
 
 def main() -> None:
@@ -27,7 +27,7 @@ def main() -> None:
             def average(nums: list[int | float]) -> float:
                 return sum(nums) / len(nums)
 
-            xx.console.log_box_bordered(
+            xx.console.box(
                 f"[b](Min)     : [br:cyan]({min(lst)})",
                 f"[b](Max)     : [br:cyan]({max(lst)})",
                 f"[b](Sum)     : [br:cyan]({sum(lst)})",
@@ -41,7 +41,7 @@ def main() -> None:
                 lower = sum(1 for e in lst if e.islower())
                 box_content += f"\n[b](Uppercase)      : {upper / len(lst) * 100:.1f}%"
                 box_content += f"\n[b](Lowercase)      : {lower / len(lst) * 100:.1f}%"
-            xx.console.log_box_bordered(box_content)
+            xx.console.box(box_content)
         print()
 
 
@@ -54,7 +54,7 @@ if __name__ == "__main__":
             ("{cmd} a b c", "Process a list of strings"),
             ('{cmd} "1,2,3" -s=","', "Process comma-separated values"),
         ],
-        epilog=StyledText(
+        epilog=S(
             S.BOLD("Note:  "),
             "When all items are numbers, min, max, sum and average are also shown.",
         ),

@@ -1058,11 +1058,11 @@ def main() -> None:  # ruff:ignore[complex-structure]
     if into_file:
         file, cls_line = None, ""
         try:
-            file = xx.file_sys.create_file(str(target_path), result.raw)
+            file = xx.fs.create_file(target_path, result.raw)
         except FileExistsError:
             cls_line = Term.prev_line() + Term.CLEAR_LINE
             if xx.console.confirm(("  ", S.WHITE(target_path.name), " already exists. Overwrite? "), start=cls_line, end=""):
-                file = xx.file_sys.create_file(str(target_path), result.raw, force=True)
+                file = xx.fs.create_file(target_path, result.raw, force=True)
             else:
                 xx.console.exit(start=cls_line, end="\n\n")
 

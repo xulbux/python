@@ -199,7 +199,7 @@ def main() -> None:
     print()
 
     external_only = bool(ARGS.external or ARGS.install)
-    directory = ARGS.path.val(Path, xx.file_sys.get_script_dir()).expanduser().resolve()
+    directory = ARGS.path.val(Path, xx.fs.get_script_dir()).expanduser().resolve()
 
     with Throbber().context():
         modules = get_all_modules(directory=directory, recursive=ARGS.recursive.exists, external_only=external_only)

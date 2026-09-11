@@ -28,7 +28,7 @@ except ImportError:
 
 # ********************************************************* CONSTANTS *********************************************************
 
-BACKUPS_DIR = xx.file_sys.get_script_dir() / "backups"
+BACKUPS_DIR = xx.fs.get_script_dir() / "backups"
 
 # Registry paths to scan for broken entries:
 REGISTRY_APP_PATHS: list[tuple[int, str]] = [

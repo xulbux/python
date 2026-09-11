@@ -551,7 +551,7 @@ def main() -> None:
                     .strip()
                 )
                 > 0
-                else xx.file_sys.get_script_dir()
+                else xx.fs.get_script_dir()
             )
 
             files = (dir_path / f"maze_{width}x{height}.txt", dir_path / f"maze_{width}x{height}_solution.txt")

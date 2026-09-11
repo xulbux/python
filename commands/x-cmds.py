@@ -65,7 +65,7 @@ class ScriptConfig(TypedDict):
 
 
 CONFIG: ScriptConfig = {
-    "command_dir": xx.file_sys.get_script_dir(),
+    "command_dir": xx.fs.get_script_dir(),
     "github_updates": {
         "github_repo_urls": ["https://github.com/xulbux/python/tree/main/commands"],
         "check_for_new_commands": True,
