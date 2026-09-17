@@ -340,11 +340,10 @@ class WiFi:
         return display
 
 
-def ascii_qr(text: str) -> str | None:  # ruff:ignore[complex-structure]
+def ascii_qr(text: str) -> str | None:
     """Generate and display QR code in terminal."""
 
     try:
-        scale = ARGS.scale.val(int, default=1)
         invert = ARGS.invert.exists
         error_level = int(
             {
@@ -374,37 +373,26 @@ def ascii_qr(text: str) -> str | None:  # ruff:ignore[complex-structure]
         matrix = qr.get_matrix()
         lines: list[str] = []
 
-        if scale == 1:
-            for i in range(0, len(matrix), 2):
-                line = ""
-                upper_row = matrix[i]
-                lower_row = matrix[i + 1] if i + 1 < len(matrix) else None
-                for j in range(len(upper_row)):
-                    upper_filled = upper_row[j]
-                    lower_filled = lower_row[j] if lower_row is not None else False
-                    if invert:
-                        upper_filled = not upper_filled
-                        lower_filled = (not lower_filled) if lower_row is not None else False
-                    if upper_filled and lower_filled:
-                        char = "█"
-                    elif upper_filled:
-                        char = "▀"
-                    elif lower_filled:
-                        char = "▄"
-                    else:
-                        char = " "
-                    line += char
-                lines.append(line)
-
-        else:
-            chars = ("  ", "██") if invert else ("██", "  ")
-            for row in matrix:
-                line = ""
-                for cell in row:
-                    char = chars[0] if cell else chars[1]
-                    line += char * (scale - 1)
-                for _ in range(scale - 1):
-                    lines.append(line)
+        for i in range(0, len(matrix), 2):
+            line = ""
+            upper_row = matrix[i]
+            lower_row = matrix[i + 1] if i + 1 < len(matrix) else None
+            for j in range(len(upper_row)):
+                upper_filled = upper_row[j]
+                lower_filled = lower_row[j] if lower_row is not None else False
+                if invert:
+                    upper_filled = not upper_filled
+                    lower_filled = (not lower_filled) if lower_row is not None else False
+                if upper_filled and lower_filled:
+                    char = "█"
+                elif upper_filled:
+                    char = "▀"
+                elif lower_filled:
+                    char = "▄"
+                else:
+                    char = " "
+                line += char
+            lines.append(line)
 
         return "  " + "\n  ".join(lines)
 
@@ -451,15 +439,10 @@ if __name__ == "__main__":
     args.add_arg("text", nargs="+", help="Text/data to encode in the QR code")
     args.add_opt({"-i", "--invert"}, help=("Invert colors ", S.DIM("(swap filled/empty blocks)")))
     args.add_opt(
-        {"-s", "--scale"},
-        expects_value="N",
-        choices=("1", "2", "3", "4"),
-        help=("Scale factor for the QR code ", S.DIM("(default: 1, max: 4)")),
-    )
-    args.add_opt(
         {"-e", "--error"},
         "error_correction",
         expects_value="LEVEL",
+        choices=("L", "M", "Q", "H"),
         help=("Error correction level ", S.DIM("(L, M, Q, H — default: M)")),
     )
     args.add_opt({"-c", "--contact"}, help=("Generate a contact QR code ", S.DIM("(vCard)")))
