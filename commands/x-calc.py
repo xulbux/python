@@ -30,6 +30,7 @@ def sanitize(expression: Any, /) -> sympy.Expr:
 
 def clean_num(token: str, /) -> str:
     """Remove underscores from numeric tokens for proper parsing."""
+
     if (no_seps_num := PATTERNS.thousands_seps.sub("", token)).replace(".", "").replace("-", "").isdigit():
         return no_seps_num
     return token
@@ -122,25 +123,31 @@ class OPERATORS:
     @classmethod
     def get(cls, operator_id: str, /) -> Callable[[Any, Any], Any] | None:
         """Get the operator function by operator ID."""
+
         return cls.IMPLEMENT.get(operator_id)
 
     @classmethod
     def get_id(cls, token: str, /) -> str | None:
         """Get the operator ID for a token by searching through the token lists."""
+
         token_lower = token.lower()
+
         for op_id, symbols in cls.ALL:
             if token_lower in symbols:
                 return op_id
+
         return None
 
     @classmethod
     def is_operator(cls, token: str, /) -> bool:
         """Check if a token is an operator by searching through the token lists."""
+
         return cls.get_id(token) is not None
 
     @classmethod
     def get_precedence(cls, operator_id: str, /) -> int:
         """Get the operator precedence by operator ID."""
+
         for keys, val in cls.PRECEDENCE.items():
             if isinstance(keys, tuple):
                 if operator_id in keys:
@@ -148,6 +155,7 @@ class OPERATORS:
             else:
                 if operator_id == keys:
                     return val
+
         return 5  # Default
 
 
@@ -175,20 +183,25 @@ class CONSTANTS:
     @classmethod
     def get(cls, constant_id: str, /) -> object | None:
         """Get the constant function by constant ID."""
+
         return cls.IMPLEMENT.get(constant_id)
 
     @classmethod
     def get_id(cls, token: str, /) -> str | None:
         """Get the constant ID for a token by searching through the token lists."""
+
         token_lower = token.lower()
+
         for const_id, symbols in cls.ALL:
             if token_lower in symbols:
                 return const_id
+
         return None
 
     @classmethod
     def is_constant(cls, token: str, /) -> bool:
         """Check if a token is a constant by searching through the token lists."""
+
         return cls.get_id(token) is not None
 
 
@@ -320,20 +333,25 @@ class FUNCTIONS:
     @classmethod
     def get(cls, func_id: str, /) -> Callable[[Any], Any] | None:
         """Get the function lambda by function ID."""
+
         return cls.IMPLEMENT.get(func_id)
 
     @classmethod
     def get_id(cls, token: str, /) -> str | None:
         """Get the function ID for a token by searching through the token lists."""
+
         token_lower = token.lower()
+
         for func_id, symbols in cls.ALL:
             if token_lower in symbols:
                 return func_id
+
         return None
 
     @classmethod
     def is_function(cls, token: str, /) -> bool:
         """Check if a token is a function by searching through the token lists."""
+
         return cls.get_id(token) is not None
 
 
@@ -596,6 +614,7 @@ class Calc:
 
     def _convert_ids_to_symbols(self, tokens: list[str | object], /) -> str:
         """Convert operator/constant/function IDs back to symbols for sympy evaluation."""
+
         result: list[str] = []
 
         for token in tokens:
@@ -710,6 +729,7 @@ class Calc:
 
     def _perform_eval(self, calc_str: str, /) -> str:
         """Internal recursive calculation function that doesn't do preprocessing."""
+
         SAVE_CALC_STR = calc_str
 
         # Handle mathematical grouping parentheses (not function calls):
@@ -997,7 +1017,6 @@ def main() -> None:
             end="\n\n",
             exit_code=1,
         )
-        return
 
     if precision_value == -1:
         precision = -1

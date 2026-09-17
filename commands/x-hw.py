@@ -11,10 +11,11 @@ import subprocess
 from contextlib import suppress
 from typing import TYPE_CHECKING, Any, TypedDict
 import xulbux as xx
-from xulbux import ArgumentParser, FormatCodes
+from xulbux import ArgumentParser, S
 
 if TYPE_CHECKING:
     import psutil
+    from xulbux.ansi import Renderable
 
 # Check if psutil is available (may fail on Python 3.14):
 try:
@@ -47,6 +48,7 @@ class HardwareInfo:
 
     def _get_system_info(self) -> dict[str, Any]:
         """Get basic system information."""
+
         info: dict[str, Any] = {
             "os": platform.system(),
             "os_version": platform.version(),
@@ -57,8 +59,9 @@ class HardwareInfo:
         }
         return info
 
-    def _get_cpu_info(self, detailed: bool = False) -> dict[str, Any]:
+    def _get_cpu_info(self) -> dict[str, Any]:
         """Get CPU information."""
+
         info: dict[str, Any] = {
             "processor": platform.processor(),
             "physical_cores": None,
@@ -78,14 +81,13 @@ class HardwareInfo:
                 info["max_frequency"] = f"{cpu_freq.max:.2f} MHz"
 
             info["cpu_usage"] = f"{psutil.cpu_percent(interval=1)}%"
-
-            if detailed:
-                info["per_core_usage"] = [f"{x}%" for x in psutil.cpu_percent(interval=1, percpu=True)]
+            info["per_core_usage"] = [f"{x}%" for x in psutil.cpu_percent(interval=1, percpu=True)]
 
         return info
 
-    def _get_memory_info(self, detailed: bool = False) -> dict[str, Any]:
+    def _get_memory_info(self) -> dict[str, Any]:
         """Get memory information."""
+
         info: dict[str, Any] = {"total": None, "available": None, "used": None, "usage_percent": None}
 
         if PSUTIL_AVAILABLE:
@@ -95,16 +97,16 @@ class HardwareInfo:
             info["used"] = self._format_bytes(mem.used)
             info["usage_percent"] = f"{mem.percent}%"
 
-            if detailed:
-                swap = psutil.swap_memory()
-                info["swap_total"] = self._format_bytes(swap.total)
-                info["swap_used"] = self._format_bytes(swap.used)
-                info["swap_percent"] = f"{swap.percent}%"
+            swap = psutil.swap_memory()
+            info["swap_total"] = self._format_bytes(swap.total)
+            info["swap_used"] = self._format_bytes(swap.used)
+            info["swap_percent"] = f"{swap.percent}%"
 
         return info
 
-    def _get_disk_info(self, detailed: bool = False) -> dict[str, Any]:
+    def _get_disk_info(self) -> dict[str, Any]:
         """Get disk information."""
+
         info: dict[str, Any] = {"partitions": [], "total_size": None, "total_used": None, "total_free": None}
 
         if PSUTIL_AVAILABLE:
@@ -139,14 +141,11 @@ class HardwareInfo:
             info["total_used"] = self._format_bytes(total_used)
             info["total_free"] = self._format_bytes(total_free)
 
-            if not detailed:
-                # In non-detailed mode, only show summary:
-                info["partitions"] = []
-
         return info
 
     def _get_gpu_info(self) -> dict[str, Any]:  # ruff:ignore[complex-structure]
         """Get GPU information."""
+
         info: dict[str, Any] = {"gpus": []}
 
         system = platform.system()
@@ -188,6 +187,7 @@ class HardwareInfo:
 
     def _get_network_info(self) -> dict[str, Any]:
         """Get network adapter information."""
+
         info: dict[str, Any] = {"adapters": []}
 
         if PSUTIL_AVAILABLE:
@@ -215,42 +215,49 @@ class HardwareInfo:
 
     def _get_battery_info(self) -> dict[str, Any]:
         """Get battery information (for laptops)."""
+
         info: dict[str, Any] = {"has_battery": False, "percent": None, "power_plugged": None, "time_left": None}
 
         if PSUTIL_AVAILABLE:
             with suppress(AttributeError):
-                battery = psutil.sensors_battery()
-                if battery:
+                if battery := psutil.sensors_battery():  # pyright:ignore[reportUnknownMemberType,reportUnknownVariableType]
                     info["has_battery"] = True
-                    info["percent"] = f"{battery.percent}%"
-                    info["power_plugged"] = battery.power_plugged
-                    if battery.secsleft != psutil.POWER_TIME_UNLIMITED and battery.secsleft > 0:
-                        hours = battery.secsleft // 3600
-                        minutes = (battery.secsleft % 3600) // 60
+                    info["percent"] = f"{battery.percent}%"  # pyright:ignore[reportUnknownMemberType]
+                    info["power_plugged"] = battery.power_plugged  # pyright:ignore[reportUnknownMemberType]
+                    if battery.secsleft != psutil.POWER_TIME_UNLIMITED and battery.secsleft > 0:  # pyright:ignore[reportUnknownMemberType]
+                        hours = battery.secsleft // 3600  # pyright:ignore[reportUnknownMemberType,reportUnknownVariableType]
+                        minutes = (battery.secsleft % 3600) // 60  # pyright:ignore[reportUnknownMemberType,reportUnknownVariableType]
                         info["time_left"] = f"{hours}h {minutes}m"
 
         return info
 
     def _format_bytes(self, bytes_value: float) -> str:
         """Format bytes to human-readable format."""
+
         for unit in ["B", "KB", "MB", "GB", "TB"]:
             if bytes_value < 1024.0:
                 return f"{bytes_value:.2f} {unit}"
             bytes_value /= 1024.0
         return f"{bytes_value:.2f} PB"
 
-    def gather_info(self, detailed: bool = False) -> None:
+    def gather_info(self) -> None:
         """Gather all hardware information."""
+
         if not PSUTIL_AVAILABLE:
-            FormatCodes.print(
-                "\n[br:yellow][b](⚠ Library psutil failed to initialize - some hardware info will be missing!)"
-                "\n  [dim](This is likely due to incompatibility with your Python version.)[_c]\n"
-            )
+            S(
+                "\n",
+                (S.BOLD | S.BR.YELLOW)("⚠ Library psutil failed to initialize - some hardware info will be missing!"),
+                "\n  ",
+                S.DIM("This is likely due to incompatibility with your Python version."),
+                "\n",
+            ).print()
+
         xx.console.info("Gathering hardware information...", start="\n")
+
         self.system = self._get_system_info()
-        self.cpu = self._get_cpu_info(detailed)
-        self.memory = self._get_memory_info(detailed)
-        self.disk = self._get_disk_info(detailed)
+        self.cpu = self._get_cpu_info()
+        self.memory = self._get_memory_info()
+        self.disk = self._get_disk_info()
         self.gpu = self._get_gpu_info()
         self.network = self._get_network_info()
         self.battery = self._get_battery_info()
@@ -277,129 +284,136 @@ class HardwareInfo:
 
     def display(self) -> None:  # ruff:ignore[complex-structure]
         """Display hardware information in formatted output."""
+
         print()
 
         # System info:
         if self.system:
-            FormatCodes.print("\n[b|br:green](System Information)")
-            system_text: list[str] = []
+            (S.BOLD | S.BR.GREEN)("\nSystem Information").print()
+            system_text: list[Renderable] = []
             if self.system.get("os"):
-                system_text.append(f"          [b](OS) : [br:white]({self.system['os']} {self.system.get('os_release', '')})")
+                system_text.append(
+                    S(S.BOLD("          OS"), " : ", S.BR.WHITE(f"{self.system['os']} {self.system.get('os_release', '')}"))
+                )
             if self.system.get("os_version"):
-                system_text.append(f"     [b](Version) : [br:white]({self.system['os_version']})")
+                system_text.append(S(S.BOLD("     Version"), " : ", S.BR.WHITE(str(self.system["os_version"]))))
             if self.system.get("architecture"):
-                system_text.append(f"[b](Architecture) : [br:white]({self.system['architecture']})")
+                system_text.append(S(S.BOLD("Architecture"), " : ", S.BR.WHITE(str(self.system["architecture"]))))
             if self.system.get("hostname"):
-                system_text.append(f"    [b](Hostname) : [br:white]({self.system['hostname']})")
-            xx.console.log_box_bordered(*system_text, border_style="br:green")
+                system_text.append(S(S.BOLD("    Hostname"), " : ", S.BR.WHITE(str(self.system["hostname"]))))
+            xx.console.box(*system_text, border_style=S.BR.GREEN)
 
         # CPU info:
         if self.cpu:
-            FormatCodes.print("\n[b|br:cyan](CPU Information)")
-            cpu_text: list[str] = []
+            (S.BOLD | S.BR.CYAN)("\nCPU Information").print()
+            cpu_text: list[Renderable] = []
             if self.cpu.get("processor"):
-                cpu_text.append(f"{'     ' if PSUTIL_AVAILABLE else ''}[b](Processor) : [br:white]({self.cpu['processor']})")
+                prefix = "     " if PSUTIL_AVAILABLE else ""
+                cpu_text.append(S(S.BOLD(f"{prefix}Processor"), " : ", S.BR.WHITE(str(self.cpu["processor"]))))
             if self.cpu.get("physical_cores"):
-                cpu_text.append(f"[b](Physical Cores) : [br:white]({self.cpu['physical_cores']})")
+                cpu_text.append(S(S.BOLD("Physical Cores"), " : ", S.BR.WHITE(str(self.cpu["physical_cores"]))))
             if self.cpu.get("logical_cores"):
-                cpu_text.append(f" [b](Logical Cores) : [br:white]({self.cpu['logical_cores']})")
+                cpu_text.append(S(S.BOLD(" Logical Cores"), " : ", S.BR.WHITE(str(self.cpu["logical_cores"]))))
             if self.cpu.get("frequency"):
-                cpu_text.append(f"     [b](Frequency) : [br:white]({self.cpu['frequency']})")
+                cpu_text.append(S(S.BOLD("     Frequency"), " : ", S.BR.WHITE(str(self.cpu["frequency"]))))
             if self.cpu.get("max_frequency"):
-                cpu_text.append(f" [b](Max Frequency) : [br:white]({self.cpu['max_frequency']})")
+                cpu_text.append(S(S.BOLD(" Max Frequency"), " : ", S.BR.WHITE(str(self.cpu["max_frequency"]))))
             if self.cpu.get("cpu_usage"):
-                cpu_text.append(f"     [b](CPU Usage) : [br:white]({self.cpu['cpu_usage']})")
+                cpu_text.append(S(S.BOLD("     CPU Usage"), " : ", S.BR.WHITE(str(self.cpu["cpu_usage"]))))
             if self.cpu.get("per_core_usage"):
                 cpu_text.append("{hr}")
                 cores = self.cpu["per_core_usage"]
-                formatted_cores: list[str] = []
-                for i in range(0, len(cores), 10):
-                    formatted_cores.append("[br:white]" + ", ".join(cores[i : i + 10]))
-                cpu_text.append("[b|br:cyan](Per-Core Usage)\n" + "\n".join(formatted_cores) + "[_c]")
-            xx.console.log_box_bordered(*cpu_text, border_style="br:cyan")
+                formatted_cores: list[Renderable] = [
+                    S.BR.WHITE(", ".join(cores[i : i + 10])) for i in range(0, len(cores), 10)
+                ]
+                cpu_text.append(S((S.BOLD | S.BR.CYAN)("Per-Core Usage\n"), S("\n").join(formatted_cores)))
+            xx.console.box(*cpu_text, border_style=S.BR.CYAN)
 
         # GPU info:
         if self.gpu and self.gpu.get("gpus"):
-            FormatCodes.print("\n[b|br:blue](GPU Information)")
-            gpu_text: list[str] = []
+            (S.BOLD | S.BR.BLUE)("\nGPU Information").print()
+            gpu_text: list[Renderable] = []
             for i, gpu in enumerate(self.gpu["gpus"]):
                 if i > 0:
                     gpu_text.append("{hr}")
-                gpu_text.append(f"[b](GPU {i + 1}) : [br:white]({gpu['name']})")
-            xx.console.log_box_bordered(*gpu_text, border_style="br:blue")
+                gpu_text.append(S(S.BOLD(f"GPU {i + 1}"), " : ", S.BR.WHITE(str(gpu["name"]))))
+            xx.console.box(*gpu_text, border_style=S.BR.BLUE)
 
         # Memory info:
         if self.memory:
-            FormatCodes.print("\n[b|magenta](Memory Information)")
-            mem_text: list[str] = []
+            (S.BOLD | S.MAGENTA)("\nMemory Information").print()
+            mem_text: list[Renderable] = []
             if self.memory.get("total"):
-                mem_text.append(f"     [b](Total) : [br:white]({self.memory['total']})")
+                mem_text.append(S(S.BOLD("     Total"), " : ", S.BR.WHITE(str(self.memory["total"]))))
             if self.memory.get("available"):
-                mem_text.append(f" [b](Available) : [br:white]({self.memory['available']})")
+                mem_text.append(S(S.BOLD(" Available"), " : ", S.BR.WHITE(str(self.memory["available"]))))
             if self.memory.get("used"):
-                mem_text.append(f"      [b](Used) : [br:white]({self.memory['used']})")
+                mem_text.append(S(S.BOLD("      Used"), " : ", S.BR.WHITE(str(self.memory["used"]))))
             if self.memory.get("usage_percent"):
-                mem_text.append(f"     [b](Usage) : [br:white]({self.memory['usage_percent']})")
+                mem_text.append(S(S.BOLD("     Usage"), " : ", S.BR.WHITE(str(self.memory["usage_percent"]))))
             if self.memory.get("swap_total"):
-                mem_text.append(f"[b](Swap Total) : [br:white]({self.memory['swap_total']})")
+                mem_text.append(S(S.BOLD("Swap Total"), " : ", S.BR.WHITE(str(self.memory["swap_total"]))))
             if self.memory.get("swap_used"):
-                mem_text.append(f" [b](Swap Used) : [br:white]({self.memory['swap_used']})")
+                mem_text.append(S(S.BOLD(" Swap Used"), " : ", S.BR.WHITE(str(self.memory["swap_used"]))))
             if self.memory.get("swap_percent"):
-                mem_text.append(f"[b](Swap Usage) : [br:white]({self.memory['swap_percent']})")
-            xx.console.log_box_bordered(*mem_text, border_style="magenta")
+                mem_text.append(S(S.BOLD("Swap Usage"), " : ", S.BR.WHITE(str(self.memory["swap_percent"]))))
+            xx.console.box(*mem_text, border_style=S.MAGENTA)
 
         # Disk info:
         if self.disk:
-            FormatCodes.print("\n[b|br:magenta](Disk Information)")
-            disk_text: list[str] = []
+            (S.BOLD | S.BR.MAGENTA)("\nDisk Information").print()
+            disk_text: list[Renderable] = []
             if self.disk.get("total_size"):
-                disk_text.append(f"[b](Total Size) : [br:white]({self.disk['total_size']})")
+                disk_text.append(S(S.BOLD("Total Size"), " : ", S.BR.WHITE(str(self.disk["total_size"]))))
             if self.disk.get("total_used"):
-                disk_text.append(f"[b](Total Used) : [br:white]({self.disk['total_used']})")
+                disk_text.append(S(S.BOLD("Total Used"), " : ", S.BR.WHITE(str(self.disk["total_used"]))))
             if self.disk.get("total_free"):
-                disk_text.append(f"[b](Total Free) : [br:white]({self.disk['total_free']})")
+                disk_text.append(S(S.BOLD("Total Free"), " : ", S.BR.WHITE(str(self.disk["total_free"]))))
 
             if self.disk.get("partitions"):
                 for partition in self.disk["partitions"]:
                     disk_text.append("{hr}")
-                    disk_text.append(f"[b|br:magenta]({partition['device']})")
-                    disk_text.append(f"     [b](Mount) : [br:white]({partition['mountpoint']})")
-                    disk_text.append(f"[b](Filesystem) : [br:white]({partition['filesystem']})")
-                    disk_text.append(f"     [b](Total) : [br:white]({partition['total']})")
-                    disk_text.append(f"      [b](Used) : [br:white]({partition['used']})")
-                    disk_text.append(f"      [b](Free) : [br:white]({partition['free']})")
-                    disk_text.append(f"     [b](Usage) : [br:white]({partition['usage_percent']})")
+                    disk_text.append((S.BOLD | S.BR.MAGENTA)(str(partition["device"])))
+                    disk_text.append(S(S.BOLD("     Mount"), " : ", S.BR.WHITE(str(partition["mountpoint"]))))
+                    disk_text.append(S(S.BOLD("Filesystem"), " : ", S.BR.WHITE(str(partition["filesystem"]))))
+                    disk_text.append(S(S.BOLD("     Total"), " : ", S.BR.WHITE(str(partition["total"]))))
+                    disk_text.append(S(S.BOLD("      Used"), " : ", S.BR.WHITE(str(partition["used"]))))
+                    disk_text.append(S(S.BOLD("      Free"), " : ", S.BR.WHITE(str(partition["free"]))))
+                    disk_text.append(S(S.BOLD("     Usage"), " : ", S.BR.WHITE(str(partition["usage_percent"]))))
 
-            xx.console.log_box_bordered(*disk_text, border_style="br:magenta")
+            xx.console.box(*disk_text, border_style=S.BR.MAGENTA)
 
         # Network info:
         if self.network and self.network.get("adapters"):
-            FormatCodes.print("\n[b|br:red](Network Adapters)")
-            net_text: list[str] = []
+            (S.BOLD | S.BR.RED)("\nNetwork Adapters").print()
+            net_text: list[Renderable] = []
             for i, adapter in enumerate(self.network["adapters"]):
                 if i > 0:
                     net_text.append("{hr}")
-                status = "[i|green](Connected)" if adapter["is_up"] else "[i|dim|white](Disconnected)"
-                net_text.append(f"[b|br:red]({adapter['name']}) {status}[_c]")
+                status = (
+                    (S.ITALIC | S.GREEN)("Connected") if adapter["is_up"] else (S.ITALIC | S.DIM | S.WHITE)("Disconnected")
+                )
+                net_text.append(S((S.BOLD | S.BR.RED)(str(adapter["name"])), " ", status))
                 if adapter.get("mac"):
-                    net_text.append(f"  [b](MAC) : [br:white]({adapter['mac']})")
+                    net_text.append(S(S.BOLD("  MAC"), " : ", S.BR.WHITE(str(adapter["mac"]))))
                 if adapter.get("speed"):
-                    net_text.append(f"[b](Speed) : [br:white]({adapter['speed']})")
-            xx.console.log_box_bordered(*net_text, border_style="br:red")
+                    net_text.append(S(S.BOLD("Speed"), " : ", S.BR.WHITE(str(adapter["speed"]))))
+            xx.console.box(*net_text, border_style=S.BR.RED)
 
         # Battery info:
         if self.battery and self.battery.get("has_battery"):
-            FormatCodes.print("\n[b|br:white](Battery Information)")
-            battery_text: list[str] = []
+            (S.BOLD | S.BR.WHITE)("\nBattery Information").print()
+            battery_text: list[Renderable] = []
             time_left = self.battery.get("time_left")
+            prefix = "        " if time_left else ""
             if self.battery.get("percent"):
-                battery_text.append(f"{'        ' if time_left else ''}[b](Charge) : [br:white]({self.battery['percent']})")
+                battery_text.append(S(S.BOLD(f"{prefix}Charge"), " : ", S.BR.WHITE(str(self.battery["percent"]))))
             if self.battery.get("power_plugged") is not None:
-                status = "[green](Plugged In)" if self.battery["power_plugged"] else "[i|yellow](On Battery)"
-                battery_text.append(f"{'        ' if time_left else ''}[b](Status) : {status}[_c]")
+                status = S.GREEN("Plugged In") if self.battery["power_plugged"] else (S.ITALIC | S.YELLOW)("On Battery")
+                battery_text.append(S(S.BOLD(f"{prefix}Status"), " : ", status))
             if time_left:
-                battery_text.append(f"[b](Time Remaining) : [br:white]({time_left})")
-            xx.console.log_box_bordered(*battery_text, border_style="br:white")
+                battery_text.append(S(S.BOLD("Time Remaining"), " : ", S.BR.WHITE(str(time_left))))
+            xx.console.box(*battery_text, border_style=S.BR.WHITE)
 
         print()
 
@@ -408,12 +422,12 @@ def main() -> None:
     hw_info = HardwareInfo()
 
     try:
-        hw_info.gather_info(detailed=ARGS.detailed.exists)
+        hw_info.gather_info()
     except Exception as exc:
         xx.console.fail(f"Error gathering hardware information: {exc}", end="\n\n", exit_code=1)
 
     if ARGS.json_output.exists:
-        FormatCodes.print(f"\n{xx.data.render(hw_info.as_dict(), indent=2, as_json=True, syntax_highlighting=True)}\n")
+        S("\n", xx.data.render(hw_info.as_dict(), indent=2, as_json=True, syntax_highlighting=True), "\n").print()
     else:
         hw_info.display()
 
@@ -424,12 +438,10 @@ if __name__ == "__main__":
         subtitle="Get detailed hardware information about your PC",
         examples=[
             ("{cmd}", "Show summary hardware information"),
-            ("{cmd} --detailed", "Show detailed hardware specifications"),
             ("{cmd} --json", "Output hardware information as JSON"),
         ],
     )
 
-    args.add_opt({"-d", "--detailed"}, "detailed", help="Show detailed hardware information")
     args.add_opt({"-j", "--json"}, "json_output", help="Output hardware information as JSON")
 
     global ARGS
