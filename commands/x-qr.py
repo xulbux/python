@@ -13,8 +13,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import qrcode
 import xulbux as xx
-from xulbux import ArgumentParser, FormatCodes, S, Throbber
-from xulbux.base.consts import COLOR
+from xulbux import ArgumentParser, S, Throbber
 
 
 def phone_validator(user_input: str) -> str | None:
@@ -254,13 +253,13 @@ class WiFi:
             current = (self._get_current_network() or "").replace("\n", " ").strip()
 
         if profiles:
-            FormatCodes.print(f"[b](Found {len(profiles)} saved networks:)")
+            S.BOLD(f"Found {len(profiles)} saved networks:").print()
             for i, profile in enumerate(profiles, 1):
-                current_marker = " [br:yellow](current)" if profile == current else ""
-                FormatCodes.print(f" [white]({i:2d}) {profile}{current_marker}")
+                current_marker = S(" ", S.BR.YELLOW("(current)")) if profile == current else ""
+                S(" ", S.WHITE(f"({i:2d})"), f" {profile}", current_marker).print()
 
         if not self.network_name:
-            if current and xx.console.confirm(f"\nUse current network [br:cyan]({current})?"):
+            if current and xx.console.confirm(S("\nUse current network ", S.BR.CYAN(f"({current})"), "?")):
                 self.network_name = current
 
             if not self.network_name:
@@ -291,12 +290,12 @@ class WiFi:
 
         if not password:
             xx.console.warn("Could not retrieve password automatically.", end="\n\n")
-            xx.console.log_box_bordered(
-                "[b](Antivirus alert? Safe to ignore:)",
+            xx.console.box(
+                S.BOLD("Antivirus alert? Safe to ignore:"),
                 "It's likely because we tried to",
                 "read a saved WiFi password.",
-                border_style=f"dim|{COLOR.ORANGE}",
-                default_color=COLOR.ORANGE,
+                border_style=S.DIM | S.hex("FFA500"),
+                default_color=S.hex("FFA500"),
                 indent=2,
             )
             password = xx.console.input(
@@ -368,7 +367,7 @@ def ascii_qr(text: str) -> str | None:  # ruff:ignore[complex-structure]
             if "Invalid version" in (err_str := str(exc)) or "expected 1 to 40" in err_str:
                 raise ValueError(
                     f"Cannot fit {len(text)} characters into a QR code.\n"
-                    f"Please reduce the amount of data or try a lower error correction level ([br:blue](-e L))."
+                    f"Please reduce the amount of data or try a lower error correction level ({S.BR.BLUE('-e L')})."
                 ) from exc
             raise
 
@@ -422,18 +421,18 @@ def main() -> None:
         text = wifi.get_wifi_string()
 
         print(f"\n\n{ascii_qr(text)}\n")
-        xx.console.info(f"[b](WiFi Details:)\n[white]{wifi.get_display_info()}[_c]", end="\n\n")
+        xx.console.info(S(S.BOLD("WiFi Details:\n"), S.WHITE(wifi.get_display_info())), end="\n\n")
 
     elif ARGS.contact.exists:
         vcard = VCard(text)
         text = vcard.get_vcard_str()
 
         print(f"\n\n{ascii_qr(text)}\n")
-        xx.console.info(f"[b](Contact Details:)\n[white]{vcard.get_display_info()}[_c]", end="\n\n")
+        xx.console.info(S(S.BOLD("Contact Details:\n"), S.WHITE(vcard.get_display_info())), end="\n\n")
 
     else:
         print(f"\n\n{ascii_qr(text)}\n")
-        xx.console.info(f"[b](Encoded Text:)\n[white]{text}[_c]", end="\n\n")
+        xx.console.info(S(S.BOLD("Encoded Text:\n"), S.WHITE(text)), end="\n\n")
 
 
 if __name__ == "__main__":
@@ -443,9 +442,9 @@ if __name__ == "__main__":
         examples=[
             ('{cmd} "https://example.com"', "Encode a URL"),
             ('{cmd} "Secret data" -i', "Invert colors for dark backgrounds"),
-            ('{cmd} "Big data" -e H', "High error correction (30% recovery)"),
-            ('{cmd} "MyNetwork;secret123" -w', "Generate a WiFi configuration QR code"),
-            ('{cmd} "John Doe;john@example.com" -c', "Generate a vCard contact QR code"),
+            ('{cmd} "Big data" -e=H', "High error correction (30% recovery)"),
+            ('{cmd} "MyNetwork" -w', "Generate a WiFi configuration QR code"),
+            ('{cmd} "John Doe" -c', "Generate a vCard contact QR code"),
         ],
     )
 
