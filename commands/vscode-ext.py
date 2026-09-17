@@ -110,12 +110,12 @@ def main() -> None:
 
     extensions = cast("list[str]", get_vscode_extensions(executable))
 
-    title = S((S.INVERSE | S.BG.BLACK)("  Found ", S.BOLD(str(len(extensions))), f" installed {variant_display} extensions  "))
+    title = (S.INVERSE | S.BG.BLACK)("  Found ", S.BOLD(str(len(extensions))), f" installed {variant_display} extensions  ")
 
     S(
         "",
         "▄" * len(title.raw),
-        title.ansi,
+        title,
         "▀" * len(title.raw),
         "",
         xx.data.render(extensions, indent=2, as_json=True, syntax_highlighting=True).ansi

@@ -12,7 +12,7 @@ import sys
 from contextlib import suppress
 from pathlib import Path
 import xulbux as xx
-from xulbux import ArgumentParser, FormatCodes, Throbber
+from xulbux import ArgumentParser, S, Throbber
 
 
 def extract_imports(file_path: Path) -> set[str]:
@@ -21,8 +21,8 @@ def extract_imports(file_path: Path) -> set[str]:
     imports: set[str] = set()
     import_pattern = re.compile(r"^\s*(?:from\s+(\S+)|import\s+(\S+))", re.MULTILINE)
 
-    with suppress(Exception), open(file_path, encoding="utf-8") as f:
-        content = f.read()
+    with suppress(Exception), open(file_path, encoding="utf-8") as file:
+        content = file.read()
 
         # Remove docstrings and comments before processing.
         # Triple-quoted strings (docstrings):
@@ -54,7 +54,7 @@ def get_local_module_names(directory: Path) -> set[str]:
 
     with suppress(PermissionError):
         for item in directory.rglob("*"):
-            if item.is_file() and item.suffix in (".py", ".pyw"):
+            if item.is_file() and item.suffix in {".py", ".pyw"}:
                 names.add(item.stem)
             elif item.is_dir() and (item / "__init__.py").exists():
                 names.add(item.name)
@@ -80,11 +80,11 @@ def get_all_modules(directory: Path, recursive: bool = False, external_only: boo
 
         with suppress(PermissionError):
             for full_path in dir_path.iterdir():
-                if full_path.is_file() and full_path.suffix in (".py", ".pyw"):
+                if full_path.is_file() and full_path.suffix in {".py", ".pyw"}:
                     for module in extract_imports(full_path):
                         if module in local_modules:
                             continue
-                        if external_only and module in set(sys.stdlib_module_names):
+                        if external_only and module in sys.stdlib_module_names:
                             continue
                         if module not in module_usage:
                             module_usage[module] = []
@@ -96,49 +96,87 @@ def get_all_modules(directory: Path, recursive: bool = False, external_only: boo
     return module_usage
 
 
+def _format_install_error(module: str, raw_error: str) -> S:
+    """Format pip install error output with styled vertical bars."""
+
+    header = S.BR.RED("✗ Failed to install ", S.BOLD(module), ":")
+    bar = (S.DIM | S.RED)("│ ")
+    clean_lines = [re.sub(r"(?i)^(?:error:\s*|\[error\]\s*)?(.*)", r"\1", line) for line in raw_error.splitlines()]
+    error_lines = [S(bar, (S.DIM | S.BR.RED)(line)) for line in clean_lines]
+
+    return S(header, "\n", S("\n").join(error_lines))
+
+
 def show_and_install_modules(modules: dict[str, list[str]], external_only: bool, install: bool = False) -> None:  # ruff:ignore[complex-structure]
+    """Display detected modules and optionally install missing packages."""
+
     title_start = "INSTALLING" if install else "FOUND"
-    output = (
-        f"[b|bg:black]([in]( {title_start} ) {len(modules)} [in]( EXTERNAL MODULES ))\n"
-        if external_only
-        else f"[b|bg:black]([in]( {title_start} ) {len(modules)} [in]( MODULES ))\n"
-    )
+    category = "EXTERNAL MODULES" if external_only else "MODULES"
+    title = (S.INVERSE | S.BG.hex("000"))(f"  {title_start} ", S.BOLD(str(len(modules))), f" {category}  ")
 
     if ARGS.list.exists:
-        output += f"\n[b|br:cyan]{'\n'.join(sorted(modules.keys()))}[_]"
+        S(
+            "▄" * len(title.raw),
+            title,
+            "▀" * len(title.raw),
+            "",
+            (S.BOLD | S.BR.CYAN)("\n".join(sorted(modules.keys()))),
+            "",
+            sep="\n",
+        ).print()
+
     else:
-        console_w = xx.console.get_width()
+        console_width = xx.console.get_width()
         num_width = len(str(len(modules)))
+        lines: list[S] = []
+
         for i, (module, files) in enumerate(sorted(modules.items()), 1):
             usage_count = len(files)
-            line = f"\n [i|dim|br:cyan]({i:>{num_width}})  [b|br:cyan]({module})"
-            line += f" [dim](used in {usage_count} file{'s' if usage_count != 1 else ''})"
-            rendered_line_len = len(FormatCodes.remove(line))
+            file_suffix = "s" if usage_count != 1 else ""
+            prefix = S(
+                " ",
+                (S.ITALIC | S.DIM | S.BR.CYAN)(f"{i:>{num_width}}"),
+                "  ",
+                (S.BOLD | S.BR.CYAN)(module),
+                " ",
+                S.DIM(f"used in {usage_count} file{file_suffix}"),
+            )
+            prefix_len = len(prefix)
 
             if usage_count <= 5:
-                if (rendered_line_len + len(file_paths := ", ".join(sorted(files)))) > console_w:
-                    line += f" {file_paths[: console_w - (rendered_line_len + 1)]}…"
+                file_paths = ", ".join(sorted(files))
+                if (prefix_len + 1 + len(file_paths)) > console_width:
+                    file_part = f" {file_paths[: console_width - (prefix_len + 2)]}…"
                 else:
-                    line += f" {file_paths}"
+                    file_part = f" {file_paths}"
+                lines.append(S(prefix, file_part))
             else:
                 file_paths = ", ".join(sorted(files)[:3])
-                overflow_part = f", [dim](+{usage_count - 3} more)"
-                rendered_overflow_len = len(FormatCodes.remove(overflow_part))
-                if (rendered_line_len + len(file_paths) + rendered_overflow_len) > console_w:
-                    line += f" {file_paths[: console_w - (rendered_line_len + rendered_overflow_len + 1)]}…{overflow_part}"
+                overflow_part = S(", ", S.DIM(f"+{usage_count - 3} more"))
+                overflow_len = len(overflow_part)
+                if (prefix_len + 1 + len(file_paths) + overflow_len) > console_width:
+                    available = console_width - (prefix_len + overflow_len + 2)
+                    file_part = f" {file_paths[:available]}…"
                 else:
-                    line += f" {file_paths}{overflow_part}"
+                    file_part = f" {file_paths}"
+                lines.append(S(prefix, file_part, overflow_part))
 
-            output += line
-
-    output += "\n"
-    FormatCodes.print(output)
+        S(
+            "▄" * len(title.raw),
+            title,
+            "▀" * len(title.raw),
+            "",
+            S("\n").join(lines),
+            "",
+            sep="\n",
+        ).print()
 
     # ************************ INSTALLATION *************************
+
     if not install:
         return
     if not xx.console.confirm("Proceed with installation?"):
-        FormatCodes.print("\n[i|dim](Installation cancelled.)\n")
+        (S.ITALIC | S.DIM)("\nInstallation cancelled.\n").print()
         return
 
     print()
@@ -146,8 +184,8 @@ def show_and_install_modules(modules: dict[str, list[str]], external_only: bool,
 
     for module in sorted(modules):
         with Throbber(
-            label=f"Installing [b]({module})",
-            format=["[dim|br:cyan]({a})", "[br:cyan]({l})"],
+            label=S("Installing ", S.BOLD(module)),
+            format=[(S.DIM | S.BR.CYAN)("{a}"), S.BR.CYAN("{l}")],
             frames=("⠴", "⠦", "⠖", "⠲"),
             interval=0.1,
         ).context():
@@ -160,42 +198,32 @@ def show_and_install_modules(modules: dict[str, list[str]], external_only: bool,
                 )
 
                 if result.returncode == 0:
-                    FormatCodes.print(f"[br:green](✓ Installed [b]({module}))")
+                    S.BR.GREEN("✓ Installed ", S.BOLD(module)).print()
                 else:
-                    FormatCodes.print(
-                        f"[br:red](✗ Failed to install [b]({module}):)\n[_dim|red]│ [dim|br:red]"
-                        + "\n[_dim|red]│ [dim|br:red]".join(
-                            re.sub(r"(?i)^(?:error:\s*|\[error\]\s*)?(.*)", r"\1", line) for line in result.stderr.splitlines()
-                        )
-                        + "[_]"
-                    )
+                    _format_install_error(module, result.stderr).print()
                     failed_modules.append(module)
             except subprocess.TimeoutExpired:
-                FormatCodes.print(f"[br:red](✗ Timed out installing [b]({module}))")
+                S.BR.RED("✗ Timed out installing ", S.BOLD(module)).print()
                 failed_modules.append(module)
             except Exception as exc:
-                FormatCodes.print(
-                    f"[br:red](✗ Failed to install [b]({module}):)\n[_dim|red]│ [dim|br:red]"
-                    + "\n[_dim|red]│ [dim|br:red]".join(
-                        re.sub(r"(?i)^(?:error:\s*|\[error\]\s*)?(.*)", r"\1", line) for line in str(exc).splitlines()
-                    )
-                    + "[_]"
-                )
+                _format_install_error(module, str(exc)).print()
                 failed_modules.append(module)
 
     print()
     if failed_modules:
-        FormatCodes.print(
-            f"[b|yellow](⚠ Failed to install {len(failed_modules)} module{'' if len(failed_modules) == 1 else 's'}:)"
-        )
+        count = len(failed_modules)
+        suffix = "" if count == 1 else "s"
+        (S.BOLD | S.YELLOW)(f"⚠ Failed to install {count} module{suffix}:").print()
         for module in failed_modules:
-            FormatCodes.print(f"[br:yellow]([dim](•) {module})")
+            S.BR.YELLOW(S.DIM("•"), f" {module}").print()
         print()
     else:
-        FormatCodes.print("[b|br:green](All modules installed successfully!)\n")
+        (S.BOLD | S.BR.GREEN)("All modules installed successfully!\n").print()
 
 
 def main() -> None:
+    """Scan directory for Python dependencies and display or install them."""
+
     print()
 
     external_only = bool(ARGS.external or ARGS.install)
@@ -206,9 +234,9 @@ def main() -> None:
 
     if not modules:
         if external_only:
-            FormatCodes.print("[i|dim](No external modules found)\n")
+            (S.ITALIC | S.DIM)("No external modules found\n").print()
         else:
-            FormatCodes.print("[i|dim](No modules found)\n")
+            (S.ITALIC | S.DIM)("No modules found\n").print()
         return
 
     if not ARGS.install.exists and ARGS.json.exists:
@@ -216,7 +244,7 @@ def main() -> None:
             json_data = sorted(modules.keys())
         else:
             json_data = {module: sorted(files) for module, files in sorted(modules.items())}
-        FormatCodes.print(f"\n{xx.data.render(json_data, indent=2, as_json=True, syntax_highlighting=True)}\n")
+        print(f"\n{xx.data.render(json_data, indent=2, as_json=True, syntax_highlighting=True)}\n")
 
     else:
         show_and_install_modules(modules, external_only, ARGS.install.exists)
@@ -248,6 +276,6 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        FormatCodes.print("\n[i|dim](Cancelled by user.)\n")
+        (S.ITALIC | S.DIM)("\nCancelled by user.\n").print()
     except Exception as exc:
         xx.console.fail(exc, start="\n", end="\n\n", exit_code=1)
