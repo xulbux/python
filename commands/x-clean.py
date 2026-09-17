@@ -15,7 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 import xulbux as xx
-from xulbux import ArgumentParser, FormatCodes, S, StyledText, Throbber
+from xulbux import ArgumentParser, S, Throbber
 
 try:
     from win32com.client import Dispatch as COMDispatch
@@ -1201,7 +1201,7 @@ if __name__ == "__main__":
         examples=[
             ('{cmd} --restore="path/to/env_vars_backup.json"', "Restore env vars from backup"),
         ],
-        epilog=StyledText(
+        epilog=S(
             S.BOLD("What it cleans:"),
             ("  ", S.MAGENTA("1. "), "Registry ", S.DIM("(app paths, uninstall entries, startup entries)")),
             ("  ", S.MAGENTA("2. "), "Environment variables containing non-existent paths"),
