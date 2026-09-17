@@ -6,42 +6,56 @@ Process a list of items and display some statistics.
 """
 
 import xulbux as xx
-from xulbux import ArgumentParser, FormatCodes, S
+from xulbux import ArgumentParser, S
+
+
+def avg(nums: list[int | float]) -> float:
+    return sum(nums) / len(nums)
 
 
 def main() -> None:
-    sep = ARGS.separator.val(default="")
+    clean_items = [item for item in " ".join(ARGS.items.vals()).split(ARGS.separator.val()) if item.strip() not in {"", None}]
 
-    if sep != "":
-        input_str = input(">  ") if not ARGS.items.exists else " ".join(ARGS.items.vals())
-        lst = [x for x in input_str.split(sep) if x.strip() not in {"", None}]
-    else:
-        lst = list(ARGS.items.vals())
+    if len(clean_items) >= 1 and clean_items[0].strip() not in {"", None}:
+        title = S((S.INVERSE | S.BG.hex("000"))("  Processed ", S.BOLD(str(len(clean_items))), " list entries  "))
+        S(
+            "",
+            "▄" * len(title.raw),
+            title,
+            "▀" * len(title.raw),
+            "",
+            S.BR.CYAN("\n".join(clean_items)),
+            "",
+            sep="\n",
+        ).print()
 
-    if len(lst) >= 1 and lst[0].strip() not in {"", None}:
-        FormatCodes.print(f"\n[b|bg:black]([in]( PROCESSED ) {len(lst)} [in]( LIST ENTRIES ))\n")
-        FormatCodes.print(f"[br:cyan]{'\n'.join(lst)}[_]\n")
-        if all(e.isnumeric() for e in lst):
-            lst = [int(e) if e.replace("_", "").isdigit() else float(e) for e in lst]
-
-            def average(nums: list[int | float]) -> float:
-                return sum(nums) / len(nums)
+        if all(item.isnumeric() for item in clean_items):
+            clean_items = [int(item) if item.replace("_", "").isdigit() else float(item) for item in clean_items]
 
             xx.console.box(
-                f"[b](Min)     : [br:cyan]({min(lst)})",
-                f"[b](Max)     : [br:cyan]({max(lst)})",
-                f"[b](Sum)     : [br:cyan]({sum(lst)})",
-                f"[b](Average) : [br:cyan]({average(lst)})",
+                (S.BOLD("Min"), S.DIM(" : "), S.BR.CYAN(str(min(clean_items)))),
+                (S.BOLD("Max"), S.DIM(" : "), S.BR.CYAN(str(max(clean_items)))),
+                (S.BOLD("Sum"), S.DIM(" : "), S.BR.CYAN(str(sum(clean_items)))),
+                (S.BOLD("Avg"), S.DIM(" : "), S.BR.CYAN(str(avg(clean_items)))),
+                border_style=S.DIM,
             )
+
         else:
-            lst = [str(x) for x in lst]
-            box_content = f"[b](Unique entries) : {' '.join(f'[br:cyan|bg:black]({e})' for e in sorted(set(lst)))}"
-            if any(not e.replace("_", "").isdigit() for e in lst):
-                upper = sum(1 for e in lst if e.isupper())
-                lower = sum(1 for e in lst if e.islower())
-                box_content += f"\n[b](Uppercase)      : {upper / len(lst) * 100:.1f}%"
-                box_content += f"\n[b](Lowercase)      : {lower / len(lst) * 100:.1f}%"
-            xx.console.box(box_content)
+            clean_items = [str(item) for item in clean_items]
+            box_content = S(
+                S.BOLD("Unique entries"),
+                S.DIM(" : "),
+                S(" ").join((S.BR.CYAN | S.BG.hex("000"))(item) for item in sorted(set(clean_items))),
+            )
+
+            if any(not item.replace("_", "").isdigit() for item in clean_items):
+                upper = sum(1 for item in clean_items if item.isupper())
+                lower = sum(1 for item in clean_items if item.islower())
+                box_content += ("\n", S.BOLD("Uppercase"), S.DIM("      : "), f"{upper / len(clean_items) * 100:.1f}%")
+                box_content += ("\n", S.BOLD("Lowercase"), S.DIM("      : "), f"{lower / len(clean_items) * 100:.1f}%")
+
+            xx.console.box(box_content, border_style=S.DIM)
+
         print()
 
 
