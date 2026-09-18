@@ -12,6 +12,8 @@ from contextlib import suppress
 from functools import lru_cache
 from pathlib import Path
 from _shared.consts import HASH_NAME_PATTERN, HEX_SEGMENT_PATTERN, NON_TEXT_EXTS, SEP_SPLITTER_PATTERN, UUID_PATTERN
+import xulbux as xx
+from xulbux.base.types import DataObj
 
 
 @lru_cache(maxsize=4096)
@@ -302,3 +304,18 @@ def is_hash_dominated_dir(entries: list[os.DirEntry[str]] | tuple[os.DirEntry[st
             hash_count += 1
 
     return (hash_count / total_count) > 0.8
+
+
+def print_json(data: DataObj, *, raw: bool = False) -> None:
+    """Print structured data as formatted syntax-highlighted or compact raw JSON.\n
+    ----------------------------------------------------------------------------------------------------
+    *   `data` – Data object, dictionary, list, or primitive to render as JSON.
+    *   `raw` – Whether to render compact JSON without syntax highlighting or padding."""
+
+    xx.data.render(
+        data,
+        indent=2,
+        compactness=2 if raw else 1,
+        as_json=True,
+        syntax_highlighting=not raw,
+    ).print()

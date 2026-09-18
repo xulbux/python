@@ -14,17 +14,17 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypedDict
 import xulbux as xx
 from xulbux import ArgumentParser, S
+from xulbux.ansi import AnyStyle, Renderable
 
 # Make the `_shared` package (cli-tools/_shared) importable when running this script directly:
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _shared.helpers import format_size
+from _shared.helpers import format_size, print_json
 
 if TYPE_CHECKING:
-    from ._shared.helpers import format_size  # ruff:ignore[runtime-import-in-type-checking-block]
+    from ._shared.helpers import format_size, print_json  # ruff:ignore[runtime-import-in-type-checking-block]
 
     import psutil
-    from xulbux.ansi import Renderable
 
 # Check if psutil is available (may fail on Python 3.14):
 try:
@@ -252,8 +252,6 @@ class HardwareInfo:
                 "\n",
             ).print()
 
-        xx.console.info("Gathering hardware information...", start="\n")
-
         self.system = self._get_system_info()
         self.cpu = self._get_cpu_info()
         self.memory = self._get_memory_info()
@@ -282,14 +280,23 @@ class HardwareInfo:
             result["battery"] = self.battery
         return result
 
-    def display(self) -> None:  # ruff:ignore[complex-structure]
-        """Display hardware information in formatted output."""
+    def display(self, *, raw: bool = False) -> None:  # ruff:ignore[complex-structure]
+        """Display hardware information in formatted or plain text output.\n
+        ----------------------------------------------------------------------------------------------------
+        *   `raw` – Whether to render plain text without ANSI colors or box borders."""
 
-        print()
+        def _render_section(title_style: AnyStyle, title_text: str, items: list[Renderable], border_style: AnyStyle) -> None:
+            if raw:
+                print(f"\n{title_text}:")
+                for item in items:
+                    if item != "{hr}":
+                        print(f"  {item.raw if isinstance(item, S) else str(item).strip()}")
+            else:
+                title_style(f"\n{title_text}").print()
+                xx.console.box(*items, border_style=border_style)
 
         # System info:
         if self.system:
-            (S.BOLD | S.BR.GREEN)("\nSystem Information").print()
             system_text: list[Renderable] = []
             if self.system.get("os"):
                 system_text.append(
@@ -301,11 +308,10 @@ class HardwareInfo:
                 system_text.append(S(S.BOLD("Architecture"), " : ", S.BR.WHITE(str(self.system["architecture"]))))
             if self.system.get("hostname"):
                 system_text.append(S(S.BOLD("    Hostname"), " : ", S.BR.WHITE(str(self.system["hostname"]))))
-            xx.console.box(*system_text, border_style=S.BR.GREEN)
+            _render_section(S.BOLD | S.BR.GREEN, "System Information", system_text, S.BR.GREEN)
 
         # CPU info:
         if self.cpu:
-            (S.BOLD | S.BR.CYAN)("\nCPU Information").print()
             cpu_text: list[Renderable] = []
             if self.cpu.get("processor"):
                 prefix = "     " if PSUTIL_AVAILABLE else ""
@@ -327,21 +333,19 @@ class HardwareInfo:
                     S.BR.WHITE(", ".join(cores[i : i + 10])) for i in range(0, len(cores), 10)
                 ]
                 cpu_text.append(S((S.BOLD | S.BR.CYAN)("Per-Core Usage\n"), S("\n").join(formatted_cores)))
-            xx.console.box(*cpu_text, border_style=S.BR.CYAN)
+            _render_section(S.BOLD | S.BR.CYAN, "CPU Information", cpu_text, S.BR.CYAN)
 
         # GPU info:
         if self.gpu and self.gpu.get("gpus"):
-            (S.BOLD | S.BR.BLUE)("\nGPU Information").print()
             gpu_text: list[Renderable] = []
             for i, gpu in enumerate(self.gpu["gpus"]):
                 if i > 0:
                     gpu_text.append("{hr}")
                 gpu_text.append(S(S.BOLD(f"GPU {i + 1}"), " : ", S.BR.WHITE(str(gpu["name"]))))
-            xx.console.box(*gpu_text, border_style=S.BR.BLUE)
+            _render_section(S.BOLD | S.BR.BLUE, "GPU Information", gpu_text, S.BR.BLUE)
 
         # Memory info:
         if self.memory:
-            (S.BOLD | S.MAGENTA)("\nMemory Information").print()
             mem_text: list[Renderable] = []
             if self.memory.get("total"):
                 mem_text.append(S(S.BOLD("     Total"), " : ", S.BR.WHITE(str(self.memory["total"]))))
@@ -357,11 +361,10 @@ class HardwareInfo:
                 mem_text.append(S(S.BOLD(" Swap Used"), " : ", S.BR.WHITE(str(self.memory["swap_used"]))))
             if self.memory.get("swap_percent"):
                 mem_text.append(S(S.BOLD("Swap Usage"), " : ", S.BR.WHITE(str(self.memory["swap_percent"]))))
-            xx.console.box(*mem_text, border_style=S.MAGENTA)
+            _render_section(S.BOLD | S.MAGENTA, "Memory Information", mem_text, S.MAGENTA)
 
         # Disk info:
         if self.disk:
-            (S.BOLD | S.BR.MAGENTA)("\nDisk Information").print()
             disk_text: list[Renderable] = []
             if self.disk.get("total_size"):
                 disk_text.append(S(S.BOLD("Total Size"), " : ", S.BR.WHITE(str(self.disk["total_size"]))))
@@ -381,11 +384,10 @@ class HardwareInfo:
                     disk_text.append(S(S.BOLD("      Free"), " : ", S.BR.WHITE(str(partition["free"]))))
                     disk_text.append(S(S.BOLD("     Usage"), " : ", S.BR.WHITE(str(partition["usage_percent"]))))
 
-            xx.console.box(*disk_text, border_style=S.BR.MAGENTA)
+            _render_section(S.BOLD | S.BR.MAGENTA, "Disk Information", disk_text, S.BR.MAGENTA)
 
         # Network info:
         if self.network and self.network.get("adapters"):
-            (S.BOLD | S.BR.RED)("\nNetwork Adapters").print()
             net_text: list[Renderable] = []
             for i, adapter in enumerate(self.network["adapters"]):
                 if i > 0:
@@ -398,11 +400,10 @@ class HardwareInfo:
                     net_text.append(S(S.BOLD("  MAC"), " : ", S.BR.WHITE(str(adapter["mac"]))))
                 if adapter.get("speed"):
                     net_text.append(S(S.BOLD("Speed"), " : ", S.BR.WHITE(str(adapter["speed"]))))
-            xx.console.box(*net_text, border_style=S.BR.RED)
+            _render_section(S.BOLD | S.BR.RED, "Network Adapters", net_text, S.BR.RED)
 
         # Battery info:
         if self.battery and self.battery.get("has_battery"):
-            (S.BOLD | S.BR.WHITE)("\nBattery Information").print()
             battery_text: list[Renderable] = []
             time_left = self.battery.get("time_left")
             prefix = "        " if time_left else ""
@@ -413,7 +414,7 @@ class HardwareInfo:
                 battery_text.append(S(S.BOLD(f"{prefix}Status"), " : ", status))
             if time_left:
                 battery_text.append(S(S.BOLD("Time Remaining"), " : ", S.BR.WHITE(str(time_left))))
-            xx.console.box(*battery_text, border_style=S.BR.WHITE)
+            _render_section(S.BOLD | S.BR.WHITE, "Battery Information", battery_text, S.BR.WHITE)
 
         print()
 
@@ -426,8 +427,12 @@ def main() -> None:
     except Exception as exc:
         xx.console.fail(f"Error gathering hardware information: {exc}", end="\n\n", exit_code=1)
 
-    if ARGS.json_output.exists:
-        S("\n", xx.data.render(hw_info.as_dict(), indent=2, as_json=True, syntax_highlighting=True), "\n").print()
+    raw_output = bool(ARGS.raw_output.exists)
+
+    if ARGS.as_json.exists:
+        print_json(hw_info.as_dict(), raw=raw_output)
+    elif raw_output:
+        hw_info.display(raw=True)
     else:
         hw_info.display()
 
@@ -438,11 +443,14 @@ if __name__ == "__main__":
         subtitle="Get detailed hardware information about your PC",
         examples=[
             ("{cmd}", "Show summary hardware information"),
-            ("{cmd} --json", "Output hardware information as JSON"),
+            ("{cmd} -r", "Output hardware information as plain text without styling"),
+            ("{cmd} -j", "Output hardware information as formatted JSON"),
+            ("{cmd} -j -r", "Output hardware information as unformatted JSON"),
         ],
     )
 
-    args.add_opt({"-j", "--json"}, "json_output", help="Output hardware information as JSON")
+    args.add_opt({"-j", "--json"}, "as_json", help="Output hardware information as formatted JSON")
+    args.add_opt({"-r", "--raw"}, "raw_output", help="Output hardware information without ANSI styling")
 
     global ARGS
     ARGS = args.parse()

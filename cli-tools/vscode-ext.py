@@ -9,10 +9,19 @@ the option to directly format them as a JSON list.
 import os
 import platform
 import subprocess
+import sys
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 import xulbux as xx
 from xulbux import ArgumentParser, S
+
+# Make the `_shared` package (cli-tools/_shared) importable when running this script directly:
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from _shared.helpers import print_json
+
+if TYPE_CHECKING:
+    from ._shared.helpers import print_json  # ruff:ignore[runtime-import-in-type-checking-block]
 
 
 def get_common_vscode_locations() -> list[tuple[str, str]]:
@@ -110,22 +119,24 @@ def main() -> None:
 
     extensions = cast("list[str]", get_vscode_extensions(executable))
 
-    title = (S.INVERSE | S.BG.hex("000"))(
-        "  Found ", S.BOLD(str(len(extensions))), f" installed {variant_display} extensions  "
-    )
-
-    S(
-        "",
-        "▄" * len(title.raw),
-        title,
-        "▀" * len(title.raw),
-        "",
-        xx.data.render(extensions, indent=2, as_json=True, syntax_highlighting=True).ansi
-        if ARGS.as_json.exists
-        else "\n".join(extensions),
-        "",
-        sep="\n",
-    ).print()
+    if ARGS.as_json.exists:
+        print_json(extensions, raw=ARGS.raw_output.exists)
+    elif ARGS.raw_output.exists:
+        print("\n".join(extensions))
+    else:
+        title = (S.INVERSE | S.BG.hex("000"))(
+            "  Found ", S.BOLD(str(len(extensions))), f" installed {variant_display} extensions  "
+        )
+        S(
+            "",
+            "▄" * len(title.raw),
+            title,
+            "▀" * len(title.raw),
+            "",
+            "\n".join(extensions),
+            "",
+            sep="\n",
+        ).print()
 
 
 if __name__ == "__main__":
@@ -134,10 +145,13 @@ if __name__ == "__main__":
         subtitle="List all installed Visual Studio Code extensions",
         examples=[
             ("{cmd}", "List all installed extensions"),
-            ("{cmd} --json", "Output all extensions as a JSON list"),
+            ("{cmd} -r", "Output plain list of extensions without header"),
+            ("{cmd} -j", "Output extensions as formatted JSON"),
+            ("{cmd} -j -r", "Output extensions as compact raw JSON"),
         ],
     )
 
+    args.add_opt({"-r", "--raw"}, "raw_output", help="Output unformatted plain text without ANSI colors or banners")
     args.add_opt({"-j", "--json"}, "as_json", help="Output as a JSON list")
 
     global ARGS

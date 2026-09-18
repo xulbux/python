@@ -47,14 +47,12 @@ if __name__ == "__main__":
         controls=[("Ctrl+C", "Stop the animation")],
         examples=[
             ("{cmd}", "Show binary mess at normal speed"),
-            ("{cmd} --fast", "Show binary mess at maximum speed"),
-            ("{cmd} --color", "Show colorful binary mess"),
-            ("{cmd} -f -c", "Show colorful binary mess at maximum speed"),
+            ("{cmd} -c -f", "Show colorful binary mess at maximum speed"),
         ],
     )
 
-    args.add_opt({"-f", "--fast"}, "fast_mode", help="Display the mess at maximum speed")
     args.add_opt({"-c", "--color"}, "color_mode", help="Color the mess in random colors")
+    args.add_opt({"-f", "--fast"}, "fast_mode", help="Display the mess at maximum speed")
 
     global ARGS
     ARGS = args.parse()

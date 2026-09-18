@@ -20,7 +20,14 @@ import requests
 import xulbux as xx
 from xulbux import ArgumentParser, S, Term, Throbber
 
+# Make the `_shared` package (cli-tools/_shared) importable when running this script directly:
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from _shared.helpers import print_json
+
 if TYPE_CHECKING:
+    from ._shared.helpers import print_json  # ruff:ignore[runtime-import-in-type-checking-block]
+
     from xulbux.ansi import TextRenderable
 
 
@@ -239,19 +246,10 @@ def inspect_tool_file(filepath: Path) -> ToolInfo:
         first_line = docstring.strip().splitlines()[0] if docstring else ""
         description = first_line or visitor.subtitle or ""
 
-        return ToolInfo(
-            name=name,
-            description=description,
-            args=visitor.args,
-            options=visitor.options,
-        )
+        return ToolInfo(name=name, description=description, args=visitor.args, options=visitor.options)
+
     except Exception:
-        return ToolInfo(
-            name=name,
-            description="",
-            args=[],
-            options=[],
-        )
+        return ToolInfo(name=name, description="", args=[], options=[])
 
 
 def is_python_file(filepath: Path) -> bool:
@@ -266,7 +264,7 @@ def is_python_file(filepath: Path) -> bool:
         return False
 
 
-def get_xtools_options(filepath: Path) -> dict[str, bool]:
+def get_xTools_options(filepath: Path) -> dict[str, bool]:
     """Get options for x-tools configured via special `# x-tools:file[…]` comments.\n
     ----------------------------------------------------------------------------------------------------
     *   `filepath` – Path to the file to inspect."""
@@ -298,7 +296,7 @@ def get_python_files() -> set[str]:
         if (
             file_path.is_file()
             and file_path.suffix in {".py", ".pyw"}
-            and (is_python_file(file_path) or bool(get_xtools_options(file_path)))
+            and (is_python_file(file_path) or bool(get_xTools_options(file_path)))
         ):
             python_files.add(file_path.name)
 
@@ -344,8 +342,8 @@ def render_styled_tools(tools: list[ToolInfo]) -> None:
 
     max_len = max([len(tool.name) for tool in tools], default=0)
     num_len = len(str(len(tools)))
-
     rows: list[S] = []
+
     for i, tool in enumerate(tools, 1):
         hints: list[S] = []
         for arg in tool.args:
@@ -376,16 +374,15 @@ def render_raw_tools(tools: list[ToolInfo]) -> None:
     *   `tools` – List of parsed tool information objects."""
 
     max_len = max([len(tool.name) for tool in tools], default=0)
-    num_len = len(str(len(tools)))
-
     lines: list[str] = []
-    for i, tool in enumerate(tools, 1):
+
+    for tool in tools:
         arg_hints = [format_arg_plain(arg) for arg in tool.args]
         opt_hints = [opt.flags[0] for opt in tool.options]
         hints_str = " ".join(arg_hints + opt_hints)
-        lines.append(f" {i:>{num_len}}  {tool.name:<{max_len}}  {hints_str}".rstrip())
+        lines.append(f"{tool.name:<{max_len}}  {hints_str}".rstrip())
 
-    print("\n" + "\n".join(lines) + "\n")
+    print("\n".join(lines))
 
 
 def render_json_tools(tools: list[ToolInfo], *, raw_output: bool) -> None:
@@ -407,13 +404,7 @@ def render_json_tools(tools: list[ToolInfo], *, raw_output: bool) -> None:
         ],
     }
 
-    xx.data.render(
-        json_data,
-        indent=2,
-        compactness=2 if raw_output else 1,
-        as_json=True,
-        syntax_highlighting=not raw_output,
-    ).print()
+    print_json(json_data, raw=raw_output)
 
 
 def get_github_diffs(local_files: set[str]) -> GithubDiffs:  # ruff:ignore[complex-structure]
@@ -472,7 +463,7 @@ def get_github_diffs(local_files: set[str]) -> GithubDiffs:  # ruff:ignore[compl
         local_updateable_files: set[str] = set()
         for filename in local_files:
             file_path = CONFIG["tools_dir"] / filename
-            options = get_xtools_options(file_path)
+            options = get_xTools_options(file_path)
             if options.get("update_check"):
                 local_updateable_files.add(Path(filename).stem)
 
@@ -645,10 +636,8 @@ def configure_utf8_output() -> None:
 def main() -> None:
     """Execute tool summary or GitHub update check based on parsed CLI arguments."""
 
-    configure_utf8_output()
-
     python_files = get_python_files()
-    listed_files = {file for file in python_files if not get_xtools_options(CONFIG["tools_dir"] / file).get("unlisted")}
+    listed_files = {file for file in python_files if not get_xTools_options(CONFIG["tools_dir"] / file).get("unlisted")}
 
     if ARGS.update_check.exists:
         with Throbber(label="Checking for updates...").context():
@@ -678,8 +667,6 @@ if __name__ == "__main__":
         controls=[("Ctrl+C", "Cancel and exit")],
         examples=[
             ("{cmd}", "List all CLI tools in a compact summary format"),
-            ("{cmd} -j", "Output tool summary as formatted JSON"),
-            ("{cmd} -r", "Output tool summary as plain text"),
             ("{cmd} -j -r", "Output tool summary as unformatted JSON"),
             ("{cmd} -u", "Check for and apply updates from GitHub"),
         ],

@@ -11,8 +11,17 @@ import subprocess
 import sys
 from contextlib import suppress
 from pathlib import Path
+from typing import TYPE_CHECKING
 import xulbux as xx
 from xulbux import ArgumentParser, S, Throbber
+
+# Make the `_shared` package (cli-tools/_shared) importable when running this script directly:
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from _shared.helpers import print_json
+
+if TYPE_CHECKING:
+    from ._shared.helpers import print_json  # ruff:ignore[runtime-import-in-type-checking-block]
 
 
 def extract_imports(file_path: Path) -> set[str]:
@@ -88,7 +97,7 @@ def get_all_modules(directory: Path, recursive: bool = False, external_only: boo
                             continue
                         if module not in module_usage:
                             module_usage[module] = []
-                        module_usage[module].append(str(full_path.relative_to(base_path).with_suffix("")))
+                        module_usage[module].append(full_path.relative_to(base_path).as_posix())
                 elif recursive and full_path.is_dir():
                     scan_directory(full_path, base_path)
 
@@ -107,14 +116,30 @@ def _format_install_error(module: str, raw_error: str) -> S:
     return S(header, "\n", S("\n").join(error_lines))
 
 
-def show_and_install_modules(modules: dict[str, list[str]], external_only: bool, install: bool = False) -> None:  # ruff:ignore[complex-structure]
-    """Display detected modules and optionally install missing packages."""
+def show_and_install_modules(  # ruff:ignore[complex-structure]
+    modules: dict[str, list[str]], external_only: bool, install: bool = False, *, raw: bool = False
+) -> None:
+    """Display detected modules and optionally install missing packages.\n
+    ----------------------------------------------------------------------------------------------------
+    *   `modules` – Mapping of module names to files importing them.
+    *   `external_only` – Whether to filter for non-standard library modules only.
+    *   `install` – Whether to prompt for and install missing packages via pip.
+    *   `raw` – Whether to render plain text without ANSI colors or title banners."""
 
-    title_start = "INSTALLING" if install else "FOUND"
-    category = "EXTERNAL MODULES" if external_only else "MODULES"
-    title = (S.INVERSE | S.BG.hex("000"))(f"  {title_start} ", S.BOLD(str(len(modules))), f" {category}  ")
+    if raw:
+        if ARGS.list.exists:
+            print("\n".join(sorted(modules.keys())))
+        else:
+            for module, files in sorted(modules.items()):
+                usage_count = len(files)
+                file_suffix = "s" if usage_count != 1 else ""
+                print(f"{module} (used in {usage_count} file{file_suffix}): {', '.join(sorted(files))}")
 
-    if ARGS.list.exists:
+    elif ARGS.list.exists:
+        title_start = "Installing" if install else "Found"
+        category = "external modules" if external_only else "modules"
+        title = (S.INVERSE | S.BG.hex("000"))(f"  {title_start} ", S.BOLD(str(len(modules))), f" {category}  ")
+
         S(
             "▄" * len(title.raw),
             title,
@@ -126,6 +151,9 @@ def show_and_install_modules(modules: dict[str, list[str]], external_only: bool,
         ).print()
 
     else:
+        title_start = "Installing" if install else "Found"
+        category = "external modules" if external_only else "modules"
+        title = (S.INVERSE | S.BG.hex("000"))(f"  {title_start} ", S.BOLD(str(len(modules))), f" {category}  ")
         console_width = xx.console.get_width()
         num_width = len(str(len(modules)))
         lines: list[S] = []
@@ -224,7 +252,8 @@ def show_and_install_modules(modules: dict[str, list[str]], external_only: bool,
 def main() -> None:
     """Scan directory for Python dependencies and display or install them."""
 
-    print()
+    if not ARGS.raw_output.exists:
+        print()
 
     external_only = bool(ARGS.external or ARGS.install)
     directory = ARGS.path.val(Path, xx.fs.get_script_dir()).expanduser().resolve()
@@ -233,21 +262,23 @@ def main() -> None:
         modules = get_all_modules(directory=directory, recursive=ARGS.recursive.exists, external_only=external_only)
 
     if not modules:
-        if external_only:
+        if ARGS.raw_output.exists:
+            print("No external modules found" if external_only else "No modules found")
+        elif external_only:
             (S.ITALIC | S.DIM)("No external modules found\n").print()
         else:
             (S.ITALIC | S.DIM)("No modules found\n").print()
         return
 
-    if not ARGS.install.exists and ARGS.json.exists:
+    if not ARGS.install.exists and ARGS.as_json.exists:
         if ARGS.list.exists:
             json_data = sorted(modules.keys())
         else:
             json_data = {module: sorted(files) for module, files in sorted(modules.items())}
-        print(f"\n{xx.data.render(json_data, indent=2, as_json=True, syntax_highlighting=True)}\n")
+        print_json(json_data, raw=ARGS.raw_output.exists)
 
     else:
-        show_and_install_modules(modules, external_only, ARGS.install.exists)
+        show_and_install_modules(modules, external_only, ARGS.install.exists, raw=ARGS.raw_output.exists)
 
 
 if __name__ == "__main__":
@@ -257,17 +288,20 @@ if __name__ == "__main__":
         examples=[
             ("{cmd}", "Scan current script directory"),
             ("{cmd} path/to/project -e", "Scan project for external dependencies only"),
-            ("{cmd} -r -l", "Recursive scan, output flat package list"),
+            ("{cmd} -R -l", "Recursive scan, output flat package list"),
+            ("{cmd} -l -r", "Output plain list of package names without header"),
             ("{cmd} --install", "Scan and install missing external packages"),
-            ("{cmd} --json", "Output dependency mapping as JSON"),
+            ("{cmd} -j", "Output dependency mapping as formatted JSON"),
+            ("{cmd} -j -r", "Output dependency mapping as compact raw JSON"),
         ],
     )
 
     args.add_arg("path", required=False, help="Directory to scan (default: script directory)")
     args.add_opt({"-e", "--external"}, help="Show only non-standard library dependencies")
-    args.add_opt({"-r", "--recursive"}, help="Scan subdirectories recursively")
+    args.add_opt({"-R", "--recursive"}, help="Scan subdirectories recursively")
     args.add_opt({"-l", "--list"}, help="Show flat list of package names without file mapping")
-    args.add_opt({"-j", "--json"}, help="Output results as JSON")
+    args.add_opt({"-r", "--raw"}, "raw_output", help="Output unformatted plain text without ANSI styling or banners")
+    args.add_opt({"-j", "--json"}, "as_json", help="Output dependency mapping as formatted JSON")
     args.add_opt({"-i", "--install"}, help="Automatically install all missing external packages")
 
     global ARGS

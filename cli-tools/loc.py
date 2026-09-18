@@ -30,6 +30,7 @@ from _shared.helpers import (
     matches_glob_patterns,
     parse_gitignore_file,
     parse_glob_patterns,
+    print_json,
 )
 
 if TYPE_CHECKING:
@@ -45,6 +46,7 @@ if TYPE_CHECKING:
         matches_glob_patterns,
         parse_gitignore_file,
         parse_glob_patterns,
+        print_json,
     )
 
 
@@ -497,18 +499,15 @@ def main() -> None:
 
     # [2] Formatted JSON output:
     if ARGS.as_json.exists:
-        xx.data.render(
+        print_json(
             {
                 "target_dir": str(target_path),
                 "total_files": scan_result.total_files,
                 "total_lines": scan_result.total_lines,
                 "extensions": dict(sorted(scan_result.extensions_data.items())),
             },
-            indent=2,
-            compactness=2 if raw_output else 1,
-            as_json=True,
-            syntax_highlighting=not raw_output,
-        ).print()
+            raw=raw_output,
+        )
         return
 
     # [3] Formatted banner output:
@@ -565,8 +564,6 @@ if __name__ == "__main__":
             ('{cmd} "path/to/my_project"', "Count lines in a specific directory"),
             ('{cmd} -i="*.py | *.toml"', "Count lines only in matching file patterns"),
             ('{cmd} -e="tests/** | build/**"', "Exclude files or directories matching patterns"),
-            ("{cmd} -H", "Include hidden and system files/directories"),
-            ("{cmd} -a", "Disable all ignore filters; hidden, system, and .gitignore"),
             ("{cmd} -j -r", "Output all gathered statistics as unformatted JSON"),
         ],
     )

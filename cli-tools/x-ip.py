@@ -9,13 +9,21 @@ import json
 import re
 import socket
 import subprocess
+import sys
 from contextlib import suppress
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 import xulbux as xx
 from xulbux import ArgumentParser, S
+from xulbux.ansi import AnyStyle, Renderable
+
+# Make the `_shared` package (cli-tools/_shared) importable when running this script directly:
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from _shared.helpers import print_json
 
 if TYPE_CHECKING:
-    from xulbux.ansi import Renderable
+    from ._shared.helpers import print_json  # ruff:ignore[runtime-import-in-type-checking-block]
 
 
 class IPInfo:
@@ -219,8 +227,6 @@ class IPInfo:
     def gather_info(self, provider: str | None) -> None:
         """Gather all IP information."""
 
-        xx.console.info("Gathering IP information...", start="\n")
-
         provider = provider or "ipify"
 
         self.local_ipv4 = self._get_local_ip()
@@ -252,12 +258,21 @@ class IPInfo:
 
         return result
 
-    def display(self) -> None:  # ruff:ignore[complex-structure]
-        """Display IP information in formatted output."""
+    def display(self, *, raw: bool = False) -> None:  # ruff:ignore[complex-structure]
+        """Display IP information in formatted or plain text output.\n
+        ----------------------------------------------------------------------------------------------------
+        *   `raw` – Whether to render plain text without ANSI colors or box borders."""
 
-        print()
+        def _render_section(title_style: AnyStyle, title_text: str, items: list[Renderable], border_style: AnyStyle) -> None:
+            if raw:
+                print(f"\n{title_text}:")
+                for item in items:
+                    if item != "{hr}":
+                        print(f"  {item.raw if isinstance(item, S) else str(item).strip()}")
+            else:
+                title_style(f"\n{title_text}").print()
+                xx.console.box(*items, border_style=border_style)
 
-        (S.BOLD | S.GREEN)("\nLocal IP Addresses").print()
         local_ips_text: list[Renderable] = []
 
         if self.local_ipv4:
@@ -269,9 +284,8 @@ class IPInfo:
         else:
             local_ips_text.append(S(S.BOLD("IPv6"), " : ", (S.ITALIC | S.DIM | S.WHITE)("Not Found")))
 
-        xx.console.box(*local_ips_text, border_style=S.GREEN)
+        _render_section(S.BOLD | S.GREEN, "Local IP Addresses", local_ips_text, S.GREEN)
 
-        (S.BOLD | S.CYAN)("\nPublic IP Addresses").print()
         public_ips_text: list[Renderable] = []
 
         if self.public_ipv4:
@@ -283,10 +297,9 @@ class IPInfo:
         else:
             public_ips_text.append(S(S.BOLD("IPv6"), " : ", (S.ITALIC | S.DIM | S.WHITE)("Not Found")))
 
-        xx.console.box(*public_ips_text, border_style=S.CYAN)
+        _render_section(S.BOLD | S.CYAN, "Public IP Addresses", public_ips_text, S.CYAN)
 
         if self.all_interfaces:
-            (S.BOLD | S.BLUE)("\nAll Network Interfaces").print()
             interfaces_text: list[Renderable] = []
 
             for i, (interface, addrs) in enumerate(self.all_interfaces.items()):
@@ -323,10 +336,9 @@ class IPInfo:
                 if "dns_suffix" in addrs:
                     interfaces_text.append(S(S.BOLD("DNS Suffix"), " : ", S.WHITE(str(addrs["dns_suffix"]))))
 
-            xx.console.box(*interfaces_text, border_style=S.BLUE)
+            _render_section(S.BOLD | S.BLUE, "All Network Interfaces", interfaces_text, S.BLUE)
 
         if self.geo_info:
-            (S.BOLD | S.MAGENTA)("\nGeolocation Information").print()
             geo = self.geo_info
             geo_text: list[Renderable] = []
             has_coords = geo.get("lat") is not None and geo.get("lng") is not None
@@ -348,7 +360,7 @@ class IPInfo:
             if geo.get("asn"):
                 geo_text.append(S(S.BOLD(f"{p}     ASN"), " : ", S.WHITE(str(geo["asn"]))))
 
-            xx.console.box(*geo_text, border_style=S.MAGENTA)
+            _render_section(S.BOLD | S.MAGENTA, "Geolocation Information", geo_text, S.MAGENTA)
 
         print()
 
@@ -361,10 +373,10 @@ def main() -> None:
     except Exception as exc:
         xx.console.fail(f"Error gathering IP information: {exc}", end="\n\n", exit_code=1)
 
-    if ARGS.json_output.exists:
-        S("\n", xx.data.render(ip_info.as_dict(), indent=2, as_json=True, syntax_highlighting=True), "\n").print()
+    if ARGS.as_json.exists:
+        print_json(ip_info.as_dict(), raw=ARGS.raw_output.exists)
     else:
-        ip_info.display()
+        ip_info.display(raw=ARGS.raw_output.exists)
 
 
 if __name__ == "__main__":
@@ -373,8 +385,10 @@ if __name__ == "__main__":
         subtitle="Get local and public IP addresses with geolocation",
         examples=[
             ("{cmd}", "Show basic IP information"),
+            ("{cmd} -r", "Output plain unformatted text"),
+            ("{cmd} -j", "Output IP information as formatted JSON"),
+            ("{cmd} -j -r", "Output IP information as compact raw JSON"),
             ("{cmd} --provider=ipapi", "Use ipapi.co to get public IP"),
-            ("{cmd} --json", "Output IP information as JSON"),
         ],
     )
 
@@ -384,7 +398,8 @@ if __name__ == "__main__":
         expects_value="NAME",
         help=("Use specific IP provider ", S.DIM("(ipify, ipapi, icanhazip)")),
     )
-    args.add_opt({"-j", "--json"}, "json_output", help="Output IP information as JSON")
+    args.add_opt({"-r", "--raw"}, "raw_output", help="Output unformatted plain text without ANSI colors or box borders")
+    args.add_opt({"-j", "--json"}, "as_json", help="Output IP information as formatted JSON")
 
     global ARGS
     ARGS = args.parse()

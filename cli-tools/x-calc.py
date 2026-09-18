@@ -14,7 +14,7 @@ from collections.abc import Callable, Generator
 from contextlib import suppress
 from typing import Any, ClassVar
 import numpy
-import sympy
+import sympy  # pyright:ignore[reportMissingTypeStubs]
 import xulbux as xx
 from xulbux import ArgumentParser, LazyRegex, S
 from xulbux.ansi import Renderable
@@ -173,11 +173,11 @@ class CONSTANTS:
 
     IMPLEMENT: ClassVar[dict[str, object]] = {
         ANS[0]: None,
-        E[0]: sympy.E,
-        INF[0]: sympy.oo,
-        PI[0]: sympy.pi,
-        TAU[0]: 2 * sympy.pi,
-        PHI[0]: sympy.GoldenRatio,
+        E[0]: sympy.E,  # pyright:ignore[reportUnknownMemberType]
+        INF[0]: sympy.oo,  # pyright:ignore[reportUnknownMemberType]
+        PI[0]: sympy.pi,  # pyright:ignore[reportUnknownMemberType]
+        TAU[0]: 2 * sympy.pi,  # pyright:ignore[reportUnknownMemberType]
+        PHI[0]: sympy.GoldenRatio,  # pyright:ignore[reportUnknownMemberType]
     }
 
     @classmethod
@@ -326,8 +326,8 @@ class FUNCTIONS:
         CBRT[0]: lambda a: sympy.Pow(sanitize(a), sympy.Rational(1, 3)),
         POW[0]: lambda a, b=None: sympy.Pow(sanitize(a), sanitize(b)) if b is not None else sanitize(a),
         # Statistical functions:
-        MIN[0]: lambda a, b=None: sympy.Min(sanitize(a), sanitize(b)) if b is not None else sanitize(a),
-        MAX[0]: lambda a, b=None: sympy.Max(sanitize(a), sanitize(b)) if b is not None else sanitize(a),
+        MIN[0]: lambda a, b=None: sympy.Min(sanitize(a), sanitize(b)) if b is not None else sanitize(a),  # pyright:ignore[reportUnknownLambdaType]
+        MAX[0]: lambda a, b=None: sympy.Max(sanitize(a), sanitize(b)) if b is not None else sanitize(a),  # pyright:ignore[reportUnknownLambdaType]
     }
 
     @classmethod
@@ -1026,7 +1026,7 @@ def main() -> None:
         max_num_len = precision_value
 
     calculation = Calc(
-        calc_str=" ".join([str(v) for v in calc_str_parts]),
+        calc_str=" ".join([str(part) for part in calc_str_parts]),
         last_ans=ARGS.ans.val(),
         precision=precision,
         max_num_len=max_num_len,

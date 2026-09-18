@@ -1049,13 +1049,13 @@ if __name__ == "__main__":
         controls=[("Ctrl+C", "Cancel and exit")],
         examples=[
             ("{cmd} -I", "Prompt for interactive settings"),
-            ('{cmd} -e "/abs/to/dir1 | rel/to/dir2 | dir3"', "Exclude specified directories"),
-            ("{cmd} -i 4", "Set indentation size in spaces"),
+            ('{cmd} -e="/abs/to/dir1 | rel/to/dir2 | dir3"', "Exclude specified directories"),
+            ("{cmd} -i=4", "Set indentation size in spaces"),
             ("{cmd} --auto-ignore=1", "Set auto-ignore mode to hardcoded only"),
             ("{cmd} --no-truncate", "Disable truncation of repetitive chunks"),
             ("{cmd} --content", "Include full file contents"),
             ("{cmd} --content=10", "Include file contents, truncated to 10 lines"),
-            ('{cmd} -f "/path/to/dir_or_file"', "Output to specific file or directory"),
+            ('{cmd} -f="/path/to/dir_or_file"', "Output to specific file or directory"),
         ],
         epilog=S(
             (
