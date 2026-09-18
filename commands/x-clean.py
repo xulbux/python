@@ -18,7 +18,14 @@ import xulbux as xx
 from xulbux import ArgumentParser, S, Throbber
 
 if TYPE_CHECKING:
+    from ._shared.helpers import format_size
+
     from xulbux.ansi import TextRenderable
+
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _shared.helpers import format_size
 
 try:
     from win32com.client import Dispatch as COMDispatch
@@ -1037,19 +1044,6 @@ def execute_temp_cleanup(temp_info: dict[str, Any]) -> list[str]:
 
 
 # ********************************************************** DISPLAY **********************************************************
-
-
-def format_size(size_bytes: int, /) -> str:
-    """Format bytes as human-readable size."""
-
-    size: float = float(size_bytes)
-
-    for unit in ("B", "KB", "MB", "GB"):
-        if size < 1024:
-            return f"{size:.1f} {unit}" if unit != "B" else f"{int(size)} {unit}"
-        size /= 1024
-
-    return f"{size:.1f} TB"
 
 
 def show_summary(  # ruff:ignore[complex-structure]

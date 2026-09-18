@@ -4,6 +4,7 @@
 Shared constants, file extensions, and auto-ignore rules for commands.
 """
 
+import fnmatch
 import re
 from typing import Literal
 
@@ -91,23 +92,26 @@ VIDEO_EXTS: frozenset[str] = frozenset({
 })
 """Extensions of video and motion picture media files."""
 NON_TEXT_EXTS: frozenset[str] = ARCHIVE_EXTS | AUDIO_EXTS | IMAGE_EXTS | VIDEO_EXTS | frozenset({
-    "3ds", "a", "accdb", "aegraphic", "aishm", "ani", "appimage", "azw", "azw3", "bak", "bdic", "beam", "bin", "binarypb",
-    "binpb", "blend", "blf", "cff", "class", "cnpf", "com", "cube", "cube-shaperlut", "cube_shaperlut", "dat", "dat-shaperlut",
-    "dat-shm", "dat-wal", "dat_shaperlut", "data", "db", "db-journal", "db-shm", "db-wal", "db3", "dbf", "dcm", "deflate",
-    "der", "desklink", "djvu", "dll", "doc", "docb", "docm", "docx", "dot", "dotm", "dotx", "dpapi", "dpb1", "dpx", "dq",
-    "drfx", "drp", "dylib", "elc", "eot", "epub", "exe", "fbx", "fdb", "flt", "fnt", "fon", "frm", "fudict", "gch", "gdb",
-    "glb", "glox", "gltf", "gpg", "hdr", "ibd", "idb", "iges", "ilut", "img", "iolut", "jfc", "jks", "jsxbin", "keyring",
-    "keystore", "knsregistry", "ko", "kwl", "ldb", "lib", "lnk", "localstorage", "localstorage-shm", "localstorage-wal",
-    "lock", "luac", "map", "max", "mb", "mdb", "mha", "mhd", "mobi", "mogrt", "mpp", "mpt", "msg", "msi", "mts", "mwb", "myd",
-    "myi", "nbt", "ndf", "nii", "node", "npy", "nrrd", "o", "obj", "ods", "odt", "ofx", "ograf", "olut", "one", "onepkg",
-    "opt", "otf", "ova", "ovf", "p12", "pages", "parquet", "pb", "pcf", "pch", "pdb", "pdf", "pfb", "pfx", "ply", "pot",
-    "potm", "potx", "ppam", "pps", "ppsm", "ppsx", "ppt", "pptm", "pptx", "prfpset", "prin", "prproj", "pt", "ptb", "pth",
-    "pyc", "pyd", "pyo", "qcow2", "rdb", "regtrans-ms", "rnd", "rtf", "safetensors", "salt", "sb3", "schem", "sdb", "sfd",
-    "sldm", "sldx", "so", "so.0", "so.1", "so.2", "so.3", "so.4", "so.5", "so.6", "so.7", "so.8", "so.9", "spi1d", "sprite3",
-    "sqlite", "sqlite-journal", "sqlite-shm", "sqlite-wal", "sqlite3", "step", "stl", "swo", "swp", "tflite", "tga", "thmx",
-    "tlb", "ttf", "uasset", "ufm", "umap", "usda", "usdc", "usdz", "vdi", "vdx", "vhdx", "vmdk", "vscdb", "vsd", "vsdx",
-    "vsix", "vss", "vssx", "vst", "vstx", "vsw", "vsx", "vtp", "vtu", "vtx", "wasm", "wbk", "woff", "woff2", "xla", "xlam",
-    "xlb", "xll", "xls", "xlsb", "xlsm", "xlsx", "xlt", "xltm", "xltx", "xlw", "zwc"
+    "3dl", "3ds", "a", "accdb", "aegraphic", "aff", "aishm", "ani", "appimage", "azw", "azw3", "bak", "bdic", "beam", "bin",
+    "binarypb", "binpb", "blend", "blf", "cdxml", "cff", "class", "cnpf", "com", "compositefont", "ctb", "cti", "cube",
+    "cube-shaperlut", "cube_shaperlut", "dae", "dat", "dat-shaperlut", "dat-shm", "dat-wal", "dat_shaperlut", "data", "db",
+    "db-journal", "db-shm", "db-wal", "db3", "dbf", "dcm", "dectest", "deflate", "der", "desklink", "dic", "dict", "djvu",
+    "dll", "doc", "docb", "docm", "docx", "dot", "dotm", "dotx", "dpapi", "dpb1", "dpx", "dq", "drfx", "drp", "dylib", "elc",
+    "enc", "eot", "epr", "epub", "eve", "exe", "exv", "fbx", "fdb", "flt", "fnt", "fon", "frm", "fudict", "gch", "gdb", "gir",
+    "glb", "glox", "gltf", "gpd", "gpg", "hdr", "ibd", "idb", "iges", "ilut", "img", "iolut", "jfc", "jks", "jsxbin",
+    "keyring", "keystore", "knsregistry", "ko", "kwl", "kys", "ldb", "lib", "lnk", "localstorage", "localstorage-shm",
+    "localstorage-wal", "lock", "luac", "lut", "map", "max", "mb", "mdb", "mha", "mhd", "mobi", "mof", "mogrt", "mpp", "mpt",
+    "msc", "msg", "msi", "mtlx", "mts", "mwb", "myd", "myi", "nbt", "ndf", "nii", "node", "npy", "nrrd", "o", "obj", "ocio",
+    "ods", "odt", "ofx", "ograf", "olut", "one", "onepkg", "opt", "otf", "ova", "ovf", "p12", "pages", "parquet", "pb", "pcf",
+    "pch", "pdb", "pdf", "pfb", "pfx", "pimx", "ply", "pot", "potm", "potx", "ppam", "pps", "ppsm", "ppsx", "ppt", "pptm",
+    "pptx", "prcolorstyle", "prfpset", "prin", "propertymap", "prproj", "pt", "ptb", "pth", "pyc", "pyd", "pyo", "qcow2",
+    "qmltypes", "rbs", "rdb", "regtrans-ms", "resw", "rnd", "rtf", "safetensors", "salt", "sb3", "schem", "sdb", "sfd", "sldm",
+    "sldx", "so", "so.0", "so.1", "so.2", "so.3", "so.4", "so.5", "so.6", "so.7", "so.8", "so.9", "spi1d", "spi3d", "sprite3",
+    "sqpreset", "sqlite", "sqlite-journal", "sqlite-shm", "sqlite-wal", "sqlite3", "step", "stl", "stringmap", "swo", "swp",
+    "tflite", "tga", "thmx", "tlb", "ttf", "uasset", "ufm", "umap", "usda", "usdc", "usdz", "variablemap", "vdi", "vdx",
+    "vhdx", "vmdk", "vscdb", "vsd", "vsdx", "vsix", "vss", "vssx", "vst", "vstx", "vsw", "vsx", "vtp", "vtu", "vtx", "wasm",
+    "wbk", "woff", "woff2", "xcl", "xla", "xlam", "xlb", "xll", "xls", "xlsb", "xlsm", "xlsx", "xlt", "xltm", "xltx", "xlw",
+    "xrm-ms", "zwc"
 })
 """Extensions of true binaries and verbose machine-generated formats that are not source code."""
 # fmt: on
@@ -159,6 +163,23 @@ AUTO_IGNORE_FOLDERS: frozenset[str] = frozenset({
 })
 """Standard cache, build, dependency, and temporary directories to auto-ignore."""
 # fmt: on
+
+EXACT_IGNORE_NAMES: frozenset[str] = frozenset({
+    path.lower() for path in AUTO_IGNORE_FOLDERS if "*" not in path and "[" not in path and "/" not in path
+})
+"""Pre-computed set of exact folder names to skip in `O(1)` time."""
+
+WILDCARD_IGNORE_NAMES: list[re.Pattern[str]] = [
+    re.compile(fnmatch.translate(path.lower()))
+    for path in AUTO_IGNORE_FOLDERS
+    if ("*" in path or "[" in path) and "/" not in path
+]
+"""Pre-compiled regex patterns for wildcard folder ignores without path separators."""
+
+PATH_IGNORE_PARTS: tuple[str, ...] = tuple(
+    path.lower() for path in AUTO_IGNORE_FOLDERS if "/" in path and "*" not in path and "[" not in path
+)
+"""Pre-computed tuple of multi-part directory paths to auto-ignore."""
 
 _SEP: str = r"[-_~x@\s]+"
 """Regex pattern for word separators in generated filenames."""

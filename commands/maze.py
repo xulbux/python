@@ -20,6 +20,15 @@ import xulbux as xx
 from xulbux import ArgumentParser, S, Throbber
 from xulbux.base.consts import KEYS
 
+# Make the `_shared` package (commands/_shared) importable when running this script directly:
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from typing import TYPE_CHECKING
+from _shared.helpers import format_size
+
+if TYPE_CHECKING:
+    from ._shared.helpers import format_size  # ruff:ignore[runtime-import-in-type-checking-block]
+
 DIRECTIONS: Final[dict[str, tuple[int, int]]] = {
     **dict.fromkeys(KEYS.UP, (-1, 0)),
     **dict.fromkeys(KEYS.DOWN, (1, 0)),
@@ -592,14 +601,7 @@ def main() -> None:
 
                 for file_path in files:
                     file_size = Path(file_path).stat().st_size
-                    unit_str = "B"
-
-                    for i, unit in enumerate(["B", "KB", "MB", "GB", "TB"]):
-                        if file_size < 1024 ** (i + 1):
-                            unit_str = f"{file_size / 1024**i:.1f} {unit}"
-                            break
-
-                    sizes.append(unit_str)
+                    sizes.append(format_size(file_size))
 
             xx.console.box(
                 S.BR.BLUE(

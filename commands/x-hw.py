@@ -8,12 +8,21 @@ Get detailed hardware information about your PC.
 import platform
 import re
 import subprocess
+import sys
 from contextlib import suppress
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypedDict
 import xulbux as xx
 from xulbux import ArgumentParser, S
 
+# Make the `_shared` package (commands/_shared) importable when running this script directly:
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from _shared.helpers import format_size
+
 if TYPE_CHECKING:
+    from ._shared.helpers import format_size  # ruff:ignore[runtime-import-in-type-checking-block]
+
     import psutil
     from xulbux.ansi import Renderable
 
@@ -92,14 +101,14 @@ class HardwareInfo:
 
         if PSUTIL_AVAILABLE:
             mem = psutil.virtual_memory()
-            info["total"] = self._format_bytes(mem.total)
-            info["available"] = self._format_bytes(mem.available)
-            info["used"] = self._format_bytes(mem.used)
+            info["total"] = format_size(mem.total)
+            info["available"] = format_size(mem.available)
+            info["used"] = format_size(mem.used)
             info["usage_percent"] = f"{mem.percent}%"
 
             swap = psutil.swap_memory()
-            info["swap_total"] = self._format_bytes(swap.total)
-            info["swap_used"] = self._format_bytes(swap.used)
+            info["swap_total"] = format_size(swap.total)
+            info["swap_used"] = format_size(swap.used)
             info["swap_percent"] = f"{swap.percent}%"
 
         return info
@@ -123,9 +132,9 @@ class HardwareInfo:
                         "device": partition.device,
                         "mountpoint": partition.mountpoint,
                         "filesystem": partition.fstype,
-                        "total": self._format_bytes(usage.total),
-                        "used": self._format_bytes(usage.used),
-                        "free": self._format_bytes(usage.free),
+                        "total": format_size(usage.total),
+                        "used": format_size(usage.used),
+                        "free": format_size(usage.free),
                         "usage_percent": f"{usage.percent}%",
                     }
 
@@ -137,9 +146,9 @@ class HardwareInfo:
                 except (PermissionError, OSError):
                     continue
 
-            info["total_size"] = self._format_bytes(total_size)
-            info["total_used"] = self._format_bytes(total_used)
-            info["total_free"] = self._format_bytes(total_free)
+            info["total_size"] = format_size(total_size)
+            info["total_used"] = format_size(total_used)
+            info["total_free"] = format_size(total_free)
 
         return info
 
@@ -230,15 +239,6 @@ class HardwareInfo:
                         info["time_left"] = f"{hours}h {minutes}m"
 
         return info
-
-    def _format_bytes(self, bytes_value: float) -> str:
-        """Format bytes to human-readable format."""
-
-        for unit in ["B", "KB", "MB", "GB", "TB"]:
-            if bytes_value < 1024.0:
-                return f"{bytes_value:.2f} {unit}"
-            bytes_value /= 1024.0
-        return f"{bytes_value:.2f} PB"
 
     def gather_info(self) -> None:
         """Gather all hardware information."""

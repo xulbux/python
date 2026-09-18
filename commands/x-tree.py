@@ -26,12 +26,12 @@ from xulbux import ArgumentParser, S, Term, Throbber
 # Make the `_shared` package (commands/_shared) importable when running this script directly:
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _shared.consts import ALL_CATEGORIES, AUTO_IGNORE_FOLDERS, EXT_TO_CAT, NON_TEXT_EXTS, Category
-from _shared.helpers import is_likely_hash_name
+from _shared.consts import ALL_CATEGORIES, AUTO_IGNORE_FOLDERS, EXT_TO_CAT, Category
+from _shared.helpers import format_time, is_likely_hash_name, is_text_file
 
 if TYPE_CHECKING:
-    from ._shared.consts import ALL_CATEGORIES, AUTO_IGNORE_FOLDERS, EXT_TO_CAT, NON_TEXT_EXTS, Category  # ruff:ignore[runtime-import-in-type-checking-block]
-    from ._shared.helpers import is_likely_hash_name  # ruff:ignore[runtime-import-in-type-checking-block]
+    from ._shared.consts import ALL_CATEGORIES, AUTO_IGNORE_FOLDERS, EXT_TO_CAT, Category  # ruff:ignore[runtime-import-in-type-checking-block]
+    from ._shared.helpers import format_time, is_likely_hash_name, is_text_file  # ruff:ignore[runtime-import-in-type-checking-block]
 
     from xulbux.ansi import AnyStyle
 
@@ -475,7 +475,7 @@ class TreeRenderer:
 
         print(Term.prev_line() + Term.CLEAR_LINE, end="")  # Clear the last progress output.
 
-        time_taken = S("took ", S.BR.MAGENTA(self._format_time(time.time() - self.stats.start_time)))
+        time_taken = S("took ", S.BR.MAGENTA(format_time(time.time() - self.stats.start_time)))
         tree_stats = S(
             ("max depth ", S.BR.MAGENTA(str(self.stats.max_depth))),
             (S.DIM(" | "), S.BR.MAGENTA(f"{self.stats.processed_dirs:,}"), " dirs"),
@@ -494,24 +494,6 @@ class TreeRenderer:
             footer,
             "\n",
         )
-
-    @staticmethod
-    def _format_time(elapsed: float) -> str:
-        m, s = divmod(int(elapsed), 60)
-        h, m = divmod(m, 60)
-        ms = int((elapsed % 1) * 1000)
-
-        parts: list[str] = []
-        if h > 0:
-            parts.append(f"{h}h")
-        if m > 0:
-            parts.append(f"{m}m")
-        if s > 0:
-            parts.append(f"{s}s")
-        if ms > 0:
-            parts.append(f"{ms}ms")
-
-        return "".join(parts) if parts else "0ms"
 
     def _update_progress(self, current_name: str, level: int, is_dir: bool = True) -> None:
         """Update the generation progress display in terminal."""
@@ -744,7 +726,7 @@ class TreeRenderer:
             for part in chunk[1:]:
                 lines.append(f"{wrap_prefix}{color}{part}{self.chrs.c_reset}{self.chrs.c_line}\n")
 
-        if self.config.include_file_contents and self._is_text_file(entry.path):
+        if self.config.include_file_contents and is_text_file(entry.path):
             self._render_file_contents(entry.path, prefix, is_last, color_dim, lines)
 
     def _render_ignored_entry(self, entry: os.DirEntry[str], prefix: str, is_last: bool, lines: list[str]) -> None:
@@ -884,21 +866,6 @@ class TreeRenderer:
             if entry.is_symlink()
             else (self.chrs.c_file, self.chrs.c_file_dim)
         )
-
-    @staticmethod
-    def _is_text_file(filepath: str) -> bool:
-        """Determine if a file is a text file by inspecting its mime type or bytes."""
-
-        if Path(filepath).suffix.lower()[1:] in NON_TEXT_EXTS:
-            return False
-
-        try:
-            with open(filepath, "rb") as file:
-                if not (chunk := file.read(1024)):
-                    return False
-                return b"\0" not in chunk
-        except Exception:
-            return False
 
 
 def get_user_inputs(config: TreeConfig) -> None:

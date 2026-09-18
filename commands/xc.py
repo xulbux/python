@@ -14,9 +14,17 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import IO, Any, cast
+from typing import IO, TYPE_CHECKING, Any, cast
 import xulbux as xx
 from xulbux import ArgumentParser, S
+
+# Make the `_shared` package (commands/_shared) importable when running this script directly:
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from _shared.helpers import format_time
+
+if TYPE_CHECKING:
+    from ._shared.helpers import format_time  # ruff:ignore[runtime-import-in-type-checking-block]
 
 try:
     import pyperclip
@@ -26,24 +34,6 @@ except Exception as exc:
         S.BR.RED(f"\n  {'\n  '.join(str(exc).splitlines())}\n"),
     ).print()
     raise SystemExit(1) from exc
-
-
-def format_time(elapsed: float) -> str:
-    m, s = divmod(int(elapsed), 60)
-    h, m = divmod(m, 60)
-    ms = int((elapsed % 1) * 1000)
-
-    parts: list[str] = []
-    if h > 0:
-        parts.append(f"{h}h")
-    if m > 0:
-        parts.append(f"{m}m")
-    if s > 0:
-        parts.append(f"{s}s")
-    if ms > 0:
-        parts.append(f"{ms}ms")
-
-    return "".join(parts) if parts else "0ms"
 
 
 def terminate_process(process: subprocess.Popen[str] | None) -> None:
