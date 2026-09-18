@@ -529,6 +529,7 @@ def github_diffs_str(github_diffs: GithubDiffs) -> S:
         return S.MAGENTA("ⓘ ", S.ITALIC(f"You have all available command-files{suffix}\n\n"))
 
     title_parts: list[str] = []
+
     if num_new_cmds:
         title_parts.append(f"{num_new_cmds} new command{'' if num_new_cmds == 1 else 's'}")
     if num_cmd_updates:
@@ -537,11 +538,11 @@ def github_diffs_str(github_diffs: GithubDiffs) -> S:
         title_parts.append(f"{num_deleted_cmds} command deletion{'' if num_deleted_cmds == 1 else 's'}")
 
     if len(title_parts) == 1:
-        title_text = f"There {'is' if total_changes == 1 else 'are'} {title_parts[0]} available."
+        title_text = f"{title_parts[0]} {'is' if total_changes == 1 else 'are'} available."
     elif len(title_parts) == 2:
-        title_text = f"There are {title_parts[0]} and {title_parts[1]} available."
+        title_text = f"{title_parts[0]} and {title_parts[1]} are available."
     else:
-        title_text = f"There are {title_parts[0]}, {title_parts[1]}, and {title_parts[2]} available."
+        title_text = f"{title_parts[0]}, {title_parts[1]}, and {title_parts[2]} are available."
 
     title: tuple[TextRenderable, TextRenderable] = (
         (S.BOLD | S.BR.MAGENTA | S.BG.BLACK)("  ⇣  "),
