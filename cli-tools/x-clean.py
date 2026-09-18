@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _shared.helpers import format_size
 
 try:
-    from win32com.client import Dispatch as COMDispatch
+    from win32com.client import Dispatch as COMDispatch  # pyright:ignore[reportMissingModuleSource]
 
     HAS_WIN32COM = True
 

@@ -587,7 +587,7 @@ def download_files(github_diffs: GithubDiffs) -> None:
             response.raise_for_status()
 
             tool_name = Path(filename).stem
-            file_path = CONFIG["tools_dir"] / (filename if xx.system.is_win() else tool_name)
+            file_path = CONFIG["tools_dir"] / filename
             file_path.write_text(response.text, encoding="utf-8")
 
             if not xx.system.is_win():

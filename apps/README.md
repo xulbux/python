@@ -40,7 +40,7 @@ A small desktop app for tagging film credits and metadata into video files – p
 
 -   **Write metadata** into `.mp4`, `.mov`, `.m4v`, `.m4a`, `.3gp`, and `.3g2` files.
 -   **Batch processing** – Select multiple files and apply the same tags to all at once.
--   **Editable fields** – Edit a variety of properties covering general info, credits, and descriptions.
+-   **Editable fields** – Edit various properties covering general info, credits, and descriptions.
 -   **Cover art** – Select an image, preview it in-app, and embed it as front-cover art.
 -   **JSON templates** – Save the current field values to a `.json` file and reload them later.
 -   **Load from video** – Reads existing metadata and cover art back out of a file and populates the fields.
@@ -60,7 +60,7 @@ A small desktop app for tagging film credits and metadata into video files – p
 
 # Video Trimmer<a href="#video-trimmer"><img src="./src/video_trimmer/assets/img/video-trimmer.svg" height="36" align="right" /></a>
 
-A small desktop app for trimming the start and/or end off a video file – powered by [**FFmpeg**](https://ffmpeg.org).
+A small desktop app for trimming the start and end off a video file – powered by [**FFmpeg**](https://ffmpeg.org).
 
 
 ### Features

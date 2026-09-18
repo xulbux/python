@@ -10,8 +10,8 @@ This repository contains **harmless** prank scripts (*also as [executables](./ex
 ## add_shutdown_script_to_startup_directory_and_shutdown_pc | [view script](./scripts/add_shutdown_script_to_startup_directory_and_shutdown_pc.py)
 
 This script/EXE will first create a second file `notSUS` in the user's startup directory (`C:\Users\%USERNAME%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup`).<br>
-After that, it will start PC shutdown in `{time}` minutes display a message: `PC is shutting down in {time} minutes.`<br>
-The `notSUS` file does the exact same thing (shutdown PC after `{time}` minutes and display message).<br>
+Subsequently, it will start PC shutdown in `{time}` minutes display a message: `PC is shutting down in {time} minutes.`<br>
+The `notSUS` file does the same thing (shutdown PC after `{time}` minutes and display message).<br>
 Per default, the **`{time}` before shutdown is set to `5 minutes`**, so there's enough time to delete the `notSUS` file from the startup directory, before shutdown happens again.
 
 ### [Download](https://github.com/xulbux/python/raw/refs/heads/main/prankware/exe/add_shutdown_script_to_startup_directory_and_shutdown_pc.exe)
@@ -22,7 +22,7 @@ Per default, the **`{time}` before shutdown is set to `5 minutes`**, so there's 
 
 ## make_lots_of_colorful_random_msg_rectangles | [view script](./scripts/make_lots_of_colorful_random_msg_rectangles.pyw)
 
-This script/EXE will simply create a bunch of colored rectangles on your screen and display a random message in each of them.<br>
+This script/EXE will simply create many colored rectangles on your screen and display a random message in each of them.<br>
 There will be no way of getting rid of them, except for restarting your PC.
 
 ### [Download](https://github.com/xulbux/python/raw/refs/heads/main/prankware/exe/make_lots_of_colorful_random_msg_rectangles.exe)
@@ -46,8 +46,8 @@ Trying to close or iconify the window will not work. The only way to close a mat
 ## play_annoying_sounds_on_keyboard_and_mouse | [view script](./scripts/play_annoying_sounds_on_keyboard_and_mouse.pyw)
 
 This script/EXE will first copy itself to the user's startup directory (`C:\Users\%USERNAME%\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup`), so that it will automatically run on every system start.<br>
-After that, it runs in the background and plays a sound every time the user presses a keyboard key/combination or clicks a mouse button.<br>
-The volume can not be lowered lower than the set `MIN_VOLUME` (*default is 50%*) in the script. Muting will not work either.<br>
+Subsequently, it runs in the background and plays a sound every time the user presses a keyboard key/combination or clicks a mouse button.<br>
+The volume cannot be lowered lower than the set `MIN_VOLUME` (*default is 50%*) in the script. Muting will not work either.<br>
 The only way to stop the script is by restarting the PC or by killing it in the task manager under the background processes (*the process is called the same as the script's/EXEs name*).
 
 ### [Download](https://github.com/xulbux/python/raw/refs/heads/main/prankware/exe/play_annoying_sounds_on_keyboard_and_mouse.exe)
