@@ -11,10 +11,9 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING
 import xulbux as xx
 from xulbux import ArgumentParser, S, Throbber
-from xulbux.console import FRAMES_WINDMILL
 
 if TYPE_CHECKING:
-    from xulbux.ansi import Renderable
+    from xulbux.ansi import Renderable, TextRenderable
 
 REFERENCE_TIMES: dict[int, float] = {
     1000: 0.01,  # 1K digits
@@ -214,9 +213,20 @@ def main() -> None:
     input_k = int(v.replace("_", "")) if (v := ARGS.decimals.val()) and v.replace("_", "").isdigit() else 10
 
     if (estimated_secs := estimate_runtime(input_k)) >= 604800:
+        title: tuple[TextRenderable, TextRenderable] = (
+            (S.BOLD | S.BG.BLACK)("  π  "),
+            (S.BOLD | S.INVERSE | S.BG.hex("000"))("  Calculation would take too long  "),
+        )
+
         S(
-            (S.BOLD | S.BG.hex("000"))("\n π ", S.INVERSE(" Calculation would take too long \n")),
-            (f"\n{format_time(estimated_secs, pretty_print=True)}\n", S.RESET),
+            "",
+            (S.BLACK("▄" * len(title[0].raw)), "▄" * len(title[1].raw)),
+            (*title,),
+            (S.BLACK("▀" * len(title[0].raw)), "▀" * len(title[1].raw)),
+            "",
+            format_time(estimated_secs, pretty_print=True),
+            S.RESET,
+            sep="\n",
         ).print()
 
     else:
@@ -227,7 +237,7 @@ def main() -> None:
         result = None
 
         try:
-            with Throbber(frames=FRAMES_WINDMILL).context():
+            with Throbber(frames=xx.console.FRAMES_WINDMILL).context():
                 result = pi(input_k)
         except MemoryError:
             S(

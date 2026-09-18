@@ -2,125 +2,295 @@
 # x-cmds:file[update]
 
 """
-Lists all Python files, executable as commands, in the current directory.
-A short description and command arguments are displayed if available.
+List and update Python command scripts in the commands directory.
+
+Provides a compact summary view of all executable Python commands with their arguments
+and options, with support for JSON, raw text, and GitHub update synchronization.
 """
 
+import ast
 import hashlib
+import io
 import re
+import sys
 from contextlib import suppress
 from pathlib import Path
-from typing import Any, Literal, TypedDict, cast
+from typing import TYPE_CHECKING, NamedTuple, TypedDict
 import requests
 import xulbux as xx
-from xulbux import FormatCodes, LazyRegex, S, StyledText, Throbber
-from xulbux.base.types import ArgParseConfigs
+from xulbux import ArgumentParser, S, Term, Throbber
 
-"""
-[1] WHICH FILES ARE CONSIDERED COMMANDS?
-Only files, starting with a python shebang line (e.g., `#!/usr/bin/env python3`), are considered commands.
+if TYPE_CHECKING:
+    from xulbux.ansi import TextRenderable
 
-[2] WHICH FILES WILL BE CHECKED FOR UPDATES?
-Only files that include the comment `# x-cmds:file[update]` at the top of the file will be checked for updates from GitHub.
 
-[3] UNLISTED FILES
-Files that include the comment `# x-cmds:file[unlisted]` at the top of the file will not appear in the commands list.
-Combine options to apply both: `# x-cmds:file[unlisted,update]`
-This is useful for shared helper/library files that should be auto-updated but are not standalone commands.
+class CommandArg(NamedTuple):
+    """Represents a positional argument of a command script.\n
+    ----------------------------------------------------------------------------------------------------
+    *   `name` – Identifier name of the positional argument.
+    *   `required` – Whether the positional argument is required.
+    *   `nargs` – Arguments value count: integer, '?', '*', or '+'."""
 
-[4] COMMAND DESCRIPTION
-The first multi-line comment (triple quotes) at the start of the file is used as a short description.
+    name: str
+    """Identifier name of the positional argument."""
+    required: bool
+    """Whether the positional argument is required."""
+    nargs: int | str = 1
+    """Arguments value count: integer, '?', '*', or '+'."""
 
-[5] COMMAND ARGUMENTS & OPTIONS
-The use of `get_args()` will automatically be parsed and displayed correctly.
-When getting args using `sys.argv`, add a comment to describe the arguments on the line `sys.argv` is used.
-The structure of the comment is similar to how the `**arg_parse_configs` kwargs are defined for `get_args()`:
-# [pos_arg1: before, arg2: {-a2, --arg2}, arg3: {-a3, --arg3}, pos_arg4: after]
-"""
+
+class CommandOpt(NamedTuple):
+    """Represents an option or flag of a command script.\n
+    ----------------------------------------------------------------------------------------------------
+    *   `flags` – List of option flags sorted shortest first.
+    *   `help` – Optional help text describing the option."""
+
+    flags: list[str]
+    """List of option flags sorted shortest first."""
+    help: str | None = None
+    """Optional help text describing the option."""
+
+
+class CommandInfo(NamedTuple):
+    """Information gathered from a command script.\n
+    ----------------------------------------------------------------------------------------------------
+    *   `name` – Stem name of the command file.
+    *   `description` – Short summary description of the command.
+    *   `args` – Positional arguments accepted by the command.
+    *   `options` – Options and flags accepted by the command."""
+
+    name: str
+    """Stem name of the command file."""
+    description: str
+    """Short summary description of the command."""
+    args: list[CommandArg]
+    """Positional arguments accepted by the command."""
+    options: list[CommandOpt]
+    """Options and flags accepted by the command."""
 
 
 class GithubDiffs(TypedDict):
     """Schema for the differences found between local commands and GitHub."""
 
     new_commands: list[str]
+    """List of new command names present only on GitHub."""
     updated_commands: list[str]
+    """List of command names with different file hashes between local and GitHub."""
     deleted_commands: list[str]
+    """List of command names deleted on GitHub but present locally with update marker."""
     download_urls: dict[str, str]
+    """Mapping of command filenames to GitHub raw download URLs."""
     fetch_failed: bool
+    """Whether GitHub API requests failed completely."""
 
 
 class GithubUpdatesConfig(TypedDict):
     """Schema for GitHub updates configuration."""
 
     github_repo_urls: list[str]
+    """List of GitHub repository URLs containing command files."""
     check_for_new_commands: bool
+    """Whether to check for new commands added to GitHub."""
     check_for_command_updates: bool
+    """Whether to check for updates to existing commands."""
 
 
 class ScriptConfig(TypedDict):
     """Schema for the script configuration."""
 
     command_dir: Path
+    """Directory containing local command scripts."""
     github_updates: GithubUpdatesConfig
+    """Configuration options for GitHub updates."""
 
 
 CONFIG: ScriptConfig = {
-    "command_dir": xx.fs.get_script_dir(),
+    "command_dir": Path(__file__).parent.resolve(),
     "github_updates": {
         "github_repo_urls": ["https://github.com/xulbux/python/tree/main/commands"],
         "check_for_new_commands": True,
         "check_for_command_updates": True,
     },
 }
+"""Runtime configuration for command directory and GitHub repository sync settings."""
 
-ARGS = xx.console.get_args({
-    "list": {"-l", "--list"},
-    "update_check": {"-u", "--update"},
-    "help": {"-h", "--help"},
-})
+SHEBANG_PATTERN: re.Pattern[str] = re.compile(r"(?i)^\s*#!.*python")
+"""Pattern matching Python shebang lines at the beginning of script files."""
 
-PATTERNS = LazyRegex(
-    python_shebang=r"(?i)^\s*#!.*python",
-    update_marker=r"(?i)^\s*#\s*x-cmds:file\[([\w]+(?:\s*,\s*[\w]+)*)\]\s*$",
-    desc=r"(?is)^(?:\s*#!?[^\n]+)*\s*(\"{3}(?:(?!\"\"\").)+\"{3}|'{3}(?:(?!''').)+'{3})",
-    sys_argv=r"(?m)(?:#\s*(\[.+?\])\s*)?sys\s*\.\s*argv(?:\[[-:0-9]+\])?(?:\s*#\s*(\[.+?\]))?",
-    args_comment=r"(\w+)(?:\s*:\s*(?:\{([^\}]*)\}|(before|after)))?",
-    get_args=r"(?m)get_args\s*\(\s*(?:[\w]+\s*=\s*(['\"])[^\1]+\1\s*(?:,\s*)?)?(?:arg_parse_configs\s*=\s*)?\{(?P<brace>(?:[^{}\"']|\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'|\{(?&brace)\})*)\}(?:\s*(?:,\s*)?(?:[\w]+\s*=\s*)?(['\"])[^\3]+\3)?\s*\)",
-    arg=r"""\s*(['"])(\w+)\1\s*:\s*(.*)\s*,?""",
-)
+UPDATE_MARKER_PATTERN: re.Pattern[str] = re.compile(r"(?i)^\s*#\s*x-cmds:file\[([\w]+(?:\s*,\s*[\w]+)*)\]\s*$")
+"""Pattern matching x-cmds file metadata comments (e.g. # x-cmds:file[update,unlisted])."""
+
+GITHUB_URL_PATTERN: re.Pattern[str] = re.compile(r"https?://github\.com/([^/]+)/([^/]+)(?:/(?:tree|blob)/([^/]+)(/.*)?)?")
+"""Pattern extracting repository owner, name, branch, and sub-path from GitHub URLs."""
 
 
-def print_help() -> None:
-    help_text = """
-[b|in|bg:black]( CMDs — List and update Python command scripts )
+class CommandParser(ast.NodeVisitor):
+    """AST visitor extracting ArgumentParser definitions, arguments, and options from script content.\n
+    ----------------------------------------------------------------------------------------------------
+    *   `tree` – Parsed AST tree of the script module."""
 
-[b](Usage:) [br:green](x-cmds) [br:blue]([options])
+    args: list[CommandArg]
+    """Positional arguments extracted from ArgumentParser.add_arg calls."""
+    options: list[CommandOpt]
+    """Options and flags extracted from ArgumentParser.add_opt calls."""
+    subtitle: str | None
+    """Subtitle extracted from ArgumentParser instantiation if present."""
 
-[b](Options:)
-  [br:blue](-l), [br:blue](--list)      List all commands in a compact one-line format
-  [br:blue](-u), [br:blue](--update)    Check GitHub for new/renamed and updated commands
+    def __init__(self) -> None:
+        self.args = []
+        self.options = []
+        self.subtitle = None
 
-[b](Examples:)
-  [br:green](x-cmds)             [dim](# [i](Show all commands with descriptions and arguments))
-  [br:green](x-cmds) [br:blue](--list)      [dim](# [i](Show a compact command list))
-  [br:green](x-cmds) [br:blue](--update)    [dim](# [i](Check for and apply updates from GitHub))
-"""
-    FormatCodes.print(help_text)
+    def _parse_argument_parser(self, node: ast.Call) -> None:
+        """Extract metadata like subtitle from ArgumentParser constructor calls.\n
+        ----------------------------------------------------------------------------------------------------
+        *   `node` – AST Call node representing the ArgumentParser instantiation."""
+
+        for keyword in node.keywords:
+            if keyword.arg == "subtitle" and isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
+                self.subtitle = keyword.value.value
+
+    def _parse_add_arg(self, node: ast.Call) -> None:
+        """Extract positional argument definition from an add_arg call.\n
+        ----------------------------------------------------------------------------------------------------
+        *   `node` – AST Call node representing an add_arg method invocation."""
+
+        if not node.args:
+            return
+
+        arg_node = node.args[0]
+        if isinstance(arg_node, ast.Constant) and isinstance(arg_node.value, str):
+            nargs: int | str = 1
+            is_required: bool | None = None
+
+            for keyword in node.keywords:
+                if keyword.arg == "nargs" and isinstance(keyword.value, ast.Constant):
+                    if isinstance(keyword.value.value, (int, str)):
+                        nargs = keyword.value.value
+                elif (
+                    keyword.arg == "required"
+                    and isinstance(keyword.value, ast.Constant)
+                    and isinstance(keyword.value.value, bool)
+                ):
+                    is_required = keyword.value.value
+
+            if is_required is None:
+                is_required = nargs not in {"?", "*"}
+
+            self.args.append(CommandArg(name=arg_node.value, required=is_required, nargs=nargs))
+
+    def _parse_add_opt(self, node: ast.Call) -> None:
+        """Extract option flags and help description from an add_opt call.\n
+        ----------------------------------------------------------------------------------------------------
+        *   `node` – AST Call node representing an add_opt method invocation."""
+
+        if not node.args:
+            return
+
+        opt_node = node.args[0]
+        flags: list[str] = []
+        if isinstance(opt_node, (ast.Set, ast.List, ast.Tuple)):
+            flags = [
+                str(element.value)
+                for element in opt_node.elts
+                if isinstance(element, ast.Constant) and isinstance(element.value, str)
+            ]
+        elif isinstance(opt_node, ast.Constant) and isinstance(opt_node.value, str):
+            flags = [opt_node.value]
+
+        if not flags:
+            return
+
+        sorted_flags = sorted(flags, key=lambda flag: (len(flag) - len(flag.lstrip("-")), flag))
+        help_text: str | None = None
+        for keyword in node.keywords:
+            if keyword.arg == "help" and isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
+                help_text = keyword.value.value
+
+        self.options.append(CommandOpt(flags=sorted_flags, help=help_text))
+
+    def visit_Call(self, node: ast.Call) -> None:
+        if isinstance(node.func, ast.Name) and node.func.id == "ArgumentParser":
+            self._parse_argument_parser(node)
+
+        elif isinstance(node.func, ast.Attribute):
+            if node.func.attr == "add_arg":
+                self._parse_add_arg(node)
+            elif node.func.attr == "add_opt":
+                self._parse_add_opt(node)
+
+        self.generic_visit(node)
 
 
-def is_python_file(filepath: str) -> bool:
-    """Check if a file is a Python file by looking for shebang line."""
+def inspect_command_file(filepath: Path) -> CommandInfo:
+    """Inspect and extract command arguments, options, and description from a command file.\n
+    ----------------------------------------------------------------------------------------------------
+    *   `filepath` – Path to the command script file."""
+
+    name = filepath.stem
+    content = filepath.read_text(encoding="utf-8")
+
+    try:
+        tree = ast.parse(content)
+        visitor = CommandParser()
+        visitor.visit(tree)
+
+        docstring = ast.get_docstring(tree) or ""
+        first_line = docstring.strip().splitlines()[0] if docstring else ""
+        description = first_line or visitor.subtitle or ""
+
+        return CommandInfo(
+            name=name,
+            description=description,
+            args=visitor.args,
+            options=visitor.options,
+        )
+    except Exception:
+        return CommandInfo(
+            name=name,
+            description="",
+            args=[],
+            options=[],
+        )
+
+
+def is_python_file(filepath: Path) -> bool:
+    """Check if a file is an executable Python command by inspecting its shebang line.\n
+    ----------------------------------------------------------------------------------------------------
+    *   `filepath` – Path to the file to inspect."""
 
     try:
         with open(filepath, encoding="utf-8") as file:
-            return bool(PATTERNS.python_shebang.match(file.readline()))
+            return bool(SHEBANG_PATTERN.match(file.readline()))
     except Exception:
         return False
 
 
+def get_xcmds_options(filepath: Path) -> dict[str, bool]:
+    """Get options for x-cmds configured via special `# x-cmds:file[…]` comments.\n
+    ----------------------------------------------------------------------------------------------------
+    *   `filepath` – Path to the file to inspect."""
+
+    options: dict[str, bool] = {}
+
+    with suppress(Exception), open(filepath, encoding="utf-8") as file:
+        for line in file:
+            if SHEBANG_PATTERN.match(line):
+                continue
+            elif match := UPDATE_MARKER_PATTERN.match(line):
+                for option in [opt.strip().lower() for opt in match.group(1).split(",")]:
+                    if option == "update":
+                        options["update_check"] = True
+                    elif option == "unlisted":
+                        options["unlisted"] = True
+            else:
+                break
+
+    return options
+
+
 def get_python_files() -> set[str]:
-    """Get all Python files managed by `x-cmds`:<br>
-    Commands with a shebang, or any `.py`/`.pyw` file with `x-cmds` markers."""
+    """Get all Python command files managed by x-cmds in the command directory."""
 
     python_files: set[str] = set()
 
@@ -128,237 +298,128 @@ def get_python_files() -> set[str]:
         if (
             file_path.is_file()
             and file_path.suffix in {".py", ".pyw"}
-            and (is_python_file(str(file_path)) or get_xcmds_options(str(file_path)))
+            and (is_python_file(file_path) or bool(get_xcmds_options(file_path)))
         ):
             python_files.add(file_path.name)
 
     return python_files
 
 
-def get_xcmds_options(filepath: str) -> dict[str, bool]:
-    """Get options for `x-cmds` set using special `# x-cmds:file[…]` comments."""
+def format_arg_styled(arg: CommandArg) -> S:
+    """Format a positional argument into an S styled object matching ArgumentParser help styling.\n
+    ----------------------------------------------------------------------------------------------------
+    *   `arg` – Positional argument details."""
 
-    options: dict[str, bool] = {}
+    l_br, r_br = ("<", ">") if arg.required else ("[", "]")
 
-    with suppress(Exception), open(filepath, encoding="utf-8") as file:
-        for line in file:
-            if PATTERNS.python_shebang.match(line):
-                continue  # Skip shebang line.
-            elif match := PATTERNS.update_marker.match(line):
-                for option in (opt.strip().lower() for opt in match.group(1).split(",")):
-                    if option == "update":
-                        options["update_check"] = True
-                    elif option == "unlisted":
-                        options["unlisted"] = True
-            else:
-                break  # Stop at first non-matching line.
-
-    return options
+    match nargs := arg.nargs:
+        case "*" | "+":
+            return S.BR.CYAN(f"{l_br}{arg.name}...{r_br}")
+        case int(n) if n > 1:
+            return S.BR.CYAN(f"{l_br}{arg.name} ", S.DIM(f"[{nargs}]"), r_br)
+        case _:
+            return S.BR.CYAN(f"{l_br}{arg.name}{r_br}")
 
 
-def sort_flags(flags: list[str]) -> list[str]:
-    """Sort flags by length (shorter first) and then alphabetically."""
+def format_arg_plain(arg: CommandArg) -> str:
+    """Format a positional argument into a plain text string matching ArgumentParser help format.\n
+    ----------------------------------------------------------------------------------------------------
+    *   `arg` – Positional argument details."""
 
-    return sorted(flags, key=lambda x: (len(x) - len(x.lstrip("-")), x))
+    l_br, r_br = ("<", ">") if arg.required else ("[", "]")
 
-
-def arguments_desc(arg_parse_configs: ArgParseConfigs | None) -> str:
-    """Generate a formatted description of command arguments
-    and options based on the provided configuration."""
-
-    if not arg_parse_configs or len(arg_parse_configs) < 1:
-        return "\n\n[b](Takes Options/Arguments) [dim]([[i](unknown)])"
-
-    arg_descs: list[str | list[str]] = []
-    keys = list(arg_parse_configs.keys())
-
-    for key, val in arg_parse_configs.items():
-        if len(val) < 1:
-            arg_descs.append(f"non-flagged argument at position [b]({keys.index(key) + 1})")
-        elif isinstance(val, str):
-            if val.lower() == "before":
-                arg_descs.append("All non-flagged arguments [b](BEFORE) first flag.")
-            elif val.lower() == "after":
-                arg_descs.append("All non-flagged arguments [b](AFTER) last flag's value.")
-            else:
-                arg_descs.append(val)
-        elif isinstance(val, dict) and "flags" in val:
-            arg_descs.append(sort_flags(list(val["flags"])))
-        else:
-            arg_descs.append(sort_flags(list(val)))
-
-    opt_descs = ["[_c], [br:blue]".join(d) for d in arg_descs if isinstance(d, (list, tuple, set, frozenset))]
-    opt_keys = [
-        keys.pop(i - j)
-        for j, (i, _) in enumerate((i, d) for i, d in enumerate(arg_descs) if isinstance(d, (list, tuple, set, frozenset)))
-    ]
-
-    arg_descs = [d for d in arg_descs if isinstance(d, str)]
-    arg_keys = [f"<{keys[i]}>" for i, _ in enumerate(arg_descs)]
-
-    left_part_len = max(len(FormatCodes.remove(x)) for x in opt_descs + arg_keys)
-
-    opt_len_diff = [len(d) - len(FormatCodes.remove(d)) for d in opt_descs]
-    opt_descs = [
-        f"[br:blue]({d:<{left_part_len + opt_len_diff[i]}})    [blue]({FormatCodes.escape(f'[{opt_keys[i]}]')})"
-        for i, d in enumerate(opt_descs)
-    ]
-
-    arg_descs = [f"[br:cyan]({arg_keys[i]:<{left_part_len}})    [cyan]({d})" for i, d in enumerate(arg_descs)]
-
-    return (
-        (
-            f"\n\n[b](Takes {len(arg_descs)} Argument{'' if len(arg_descs) == 1 else 's'}:)"
-            f"\n  {'\n  '.join(cast('list[str]', arg_descs))}"
-        )
-        if len(arg_descs) > 0
-        else ""
-    ) + (
-        (f"\n\n[b](Has {len(opt_descs)} Option{'' if len(opt_descs) == 1 else 's'}:)\n  {'\n  '.join(opt_descs)}")
-        if len(opt_descs) > 0
-        else ""
-    )
+    match nargs := arg.nargs:
+        case "*" | "+":
+            return f"{l_br}{arg.name}...{r_br}"
+        case int(n) if n > 1:
+            return f"{l_br}{arg.name} [{nargs}]{r_br}"
+        case _:
+            return f"{l_br}{arg.name}{r_br}"
 
 
-def parse_args_comment(comment_str: str) -> ArgParseConfigs:
-    """Parse an arguments comment string into a structured configuration dictionary."""
+def render_styled_commands(commands: list[CommandInfo]) -> None:
+    """Render the commands list as an S styled terminal summary.\n
+    ----------------------------------------------------------------------------------------------------
+    *   `commands` – List of parsed command information objects."""
 
-    result: ArgParseConfigs = {}
+    max_len = max([len(cmd.name) for cmd in commands], default=0)
+    num_len = len(str(len(commands)))
 
-    for match in PATTERNS.args_comment.finditer(cast("re.Match[str]", re.match(r"\[(.*)\]", comment_str)).group(1)):
-        key = str(match.group(1))
-        if (val := match.group(3)) in {"before", "after"}:
-            result[key] = cast("Literal['before', 'after']", val)
-        else:
-            flags: set[str] = {flag.strip() for flag in match.group(2).split(",")} if match.group(2) else set()
-            result[key] = flags
+    rows: list[S] = []
+    for i, cmd in enumerate(commands, 1):
+        hints: list[S] = []
+        for arg in cmd.args:
+            hints.append(format_arg_styled(arg))
+        for opt in cmd.options:
+            hints.append(S.BR.BLUE(opt.flags[0]))
 
-    return result
+        hint_elements: list[S | str] = []
+        for hint_index, hint in enumerate(hints):
+            if hint_index > 0:
+                hint_elements.append(" ")
+            hint_elements.append(hint)
 
-
-def parse_file_args(content: str) -> ArgParseConfigs | None:
-    """Parse arg configs from file content. Returns None if no args section is detected."""
-
-    sys_argv_matches = cast("list[tuple[str, ...] | str]", PATTERNS.sys_argv.findall(content))
-    sys_argv_comments: list[str] = [
-        c for groups in sys_argv_matches for c in (groups if isinstance(groups, tuple) else (groups,)) if c
-    ]
-    get_args_matches = cast("list[tuple[str, ...]]", PATTERNS.get_args.findall(content))
-    get_args_funcs = [func_args[1] for func_args in get_args_matches if func_args[1]]
-
-    if not get_args_funcs and not sys_argv_comments:
-        return None
-
-    arg_parse_configs: ArgParseConfigs = {}
-
-    with suppress(Exception):
-        if get_args_funcs:
-            func_args = ""
-
-            if len(get_args_funcs) > 1:
-                for fa in get_args_funcs:
-                    if fa := fa.strip():
-                        func_args = fa
-                        break
-
-            else:
-                func_args = get_args_funcs[0]
-            import ast
-
-            try:
-                if isinstance(parsed := ast.literal_eval("{" + func_args + "}"), dict):
-                    arg_parse_configs.update(cast("dict[str, Any]", parsed))
-            except Exception:
-                for arg in PATTERNS.arg.finditer(func_args):
-                    if (key := arg.group(2)) and (val := arg.group(3)):
-                        arg_parse_configs[key.strip()] = xx.string.to_type(val.strip().rstrip(","))
-
-        else:
-            for comment in sys_argv_comments:
-                if (comment := comment.strip()).startswith("["):
-                    arg_parse_configs.update(parse_args_comment(comment))
-
-    return arg_parse_configs
-
-
-def get_commands_str(python_files: set[str], list_mode: bool = False) -> str:
-    """Generate a formatted string listing all commands, with optional argument hints.<br>
-    If `list_mode` is True, a compact one-line format is used."""
-
-    if list_mode:
-        cmd_info: list[tuple[str, str]] = []
-
-        for file in sorted(python_files):
-            cmd_name = Path(file).stem
-
-            try:
-                content = (CONFIG["command_dir"] / file).read_text(encoding="utf-8")
-                arg_parse_configs = parse_file_args(content) or {}
-            except Exception:
-                arg_parse_configs = {}
-
-            before_hints: list[str] = []
-            flag_hints: list[str] = []
-            help_hints: list[str] = []
-            after_hints: list[str] = []
-
-            for key, val in arg_parse_configs.items():
-                if isinstance(val, str) and val.lower() == "before":
-                    before_hints.append(f"[dim|br:cyan](<{key}>)")
-                elif isinstance(val, str) and val.lower() == "after":
-                    after_hints.append(f"[dim|br:cyan](<{key}>)")
-                elif isinstance(val, dict) and "flags" in val and len(val["flags"]) > 0:
-                    flags = sort_flags(list(val["flags"]))
-                    hint = f"[dim|br:blue]({flags[0]})"
-                    (help_hints if flags[0] in {"-h", "--help"} else flag_hints).append(hint)
-                elif isinstance(val, (set, frozenset, list, tuple)) and len(val) > 0:
-                    flags = sort_flags(list(val))
-                    hint = f"[dim|br:blue]({flags[0]})"
-                    (help_hints if flags[0] in {"-h", "--help"} else flag_hints).append(hint)
-                else:
-                    before_hints.append(f"[dim|br:cyan](<{key}>)")
-
-            hints = before_hints + flag_hints + help_hints + after_hints
-
-            cmd_info.append((cmd_name, f"[_]{' '.join(hints)}" if hints else ""))
-
-        max_len = max((len(name) for name, _ in cmd_info), default=0)
-        num_len = len(str(len(cmd_info)))
-
-        return (
-            "\n"
-            + "\n".join(
-                f"[i|dim|br:white]( {i:>{num_len}} )[b|br:white]( {name:<{max_len}}  ){hint}"
-                for i, (name, hint) in enumerate(cmd_info, 1)
+        rows.append(
+            S(
+                (S.ITALIC | S.DIM | S.BR.WHITE)(f" {i:>{num_len}} "),
+                (S.BOLD | S.BR.WHITE)(f" {cmd.name:<{max_len}}  "),
+                *hint_elements,
             )
-            + "\n"
         )
 
-    cmds = ""
+    S("", *rows, "", sep="\n").print()
 
-    for i, file in enumerate(sorted(python_files), 1):
-        cmd_name = Path(file).stem
-        cmd_title_len = len(str(i)) + len(cmd_name) + 4
-        cmds += (
-            f"\n[b|br:white|bg:br:white]([[black]{i}[br:white]][in|black]("
-            f" {cmd_name} [bg:black]{'━' * (xx.console.get_width() - cmd_title_len)}))"
-        )
 
-        with open(CONFIG["command_dir"] / file, encoding="utf-8") as f:
-            if desc := PATTERNS.desc.match(content := f.read()):
-                cmds += f"\n\n[i]{desc.group(1).strip('\n"\'')}[_]"
+def render_raw_commands(commands: list[CommandInfo]) -> None:
+    """Render the commands list as plain text without ANSI styling.\n
+    ----------------------------------------------------------------------------------------------------
+    *   `commands` – List of parsed command information objects."""
 
-        parsed_args = parse_file_args(content)
-        if parsed_args is not None:
-            cmds += arguments_desc(parsed_args)
+    max_len = max([len(cmd.name) for cmd in commands], default=0)
+    num_len = len(str(len(commands)))
 
-        cmds += "\n\n"
+    lines: list[str] = []
+    for i, cmd in enumerate(commands, 1):
+        arg_hints = [format_arg_plain(arg) for arg in cmd.args]
+        opt_hints = [opt.flags[0] for opt in cmd.options]
+        hints_str = " ".join(arg_hints + opt_hints)
+        lines.append(f" {i:>{num_len}}  {cmd.name:<{max_len}}  {hints_str}".rstrip())
 
-    return cmds
+    print("\n" + "\n".join(lines) + "\n")
+
+
+def render_json_commands(commands: list[CommandInfo], *, raw_output: bool) -> None:
+    """Render the commands list as formatted or raw JSON.\n
+    ----------------------------------------------------------------------------------------------------
+    *   `commands` – List of parsed command information objects.
+    *   `raw_output` – Whether to render compact JSON without syntax highlighting."""
+
+    json_data = {
+        "total_commands": len(commands),
+        "commands": [
+            {
+                "name": cmd.name,
+                "description": cmd.description,
+                "args": [{"name": arg.name, "required": arg.required, "nargs": arg.nargs} for arg in cmd.args],
+                "options": [opt.flags[0] for opt in cmd.options],
+            }
+            for cmd in commands
+        ],
+    }
+
+    xx.data.render(
+        json_data,
+        indent=2,
+        compactness=2 if raw_output else 1,
+        as_json=True,
+        syntax_highlighting=not raw_output,
+    ).print()
 
 
 def get_github_diffs(local_files: set[str]) -> GithubDiffs:  # ruff:ignore[complex-structure]
-    """Check for new files, updated files, and deleted files on GitHub compared to local command-directory."""
+    """Check for new files, updated files, and deleted files on GitHub compared to local command directory.\n
+    ----------------------------------------------------------------------------------------------------
+    *   `local_files` – Set of local file names to compare against GitHub."""
 
     result: GithubDiffs = {
         "new_commands": [],
@@ -376,22 +437,20 @@ def get_github_diffs(local_files: set[str]) -> GithubDiffs:  # ruff:ignore[compl
         for repo_url in CONFIG["github_updates"]["github_repo_urls"]:
             with suppress(Exception):
                 # Parse the URL to extract repo info:
-                url_pattern = re.match(r"https?://github\.com/([^/]+)/([^/]+)(?:/(?:tree|blob)/([^/]+)(/.*)?)?", repo_url)
-                if not url_pattern:
+                if not (url_match := GITHUB_URL_PATTERN.match(repo_url)):
                     continue
 
-                user, repo, branch, path = url_pattern.groups()
-                branch, path = branch or "main", (path or "").strip("/")
+                user, repo, branch, path = url_match.groups()
+                branch_name = branch or "main"
+                path_str = (path or "").strip("/")
 
-                # Use GitHub API to get directory contents:
-                api_url = f"https://api.github.com/repos/{user}/{repo}/contents/{path}"
-                if branch:
-                    api_url += f"?ref={branch}"
+                api_url = f"https://api.github.com/repos/{user}/{repo}/contents/{path_str}"
+                if branch_name:
+                    api_url += f"?ref={branch_name}"
 
                 response = requests.get(api_url, timeout=10)
                 response.raise_for_status()
 
-                # Merge files from this repo (later URLs override earlier ones if same name):
                 for item in response.json():
                     if item["type"] == "file" and item["name"].endswith((".py", ".pyw")):
                         cmd_name = Path(item["name"]).stem
@@ -405,28 +464,24 @@ def get_github_diffs(local_files: set[str]) -> GithubDiffs:  # ruff:ignore[compl
 
         if successful_fetches == 0 and len(CONFIG["github_updates"]["github_repo_urls"]) > 0:
             result["fetch_failed"] = True
-            return result  # Bail out to prevent false deletions when GitHub API requests fail.
+            return result
 
-        # Create mapping from cmd name to actual filename for local files:
-        local_file_map = {Path(f).stem: f for f in local_files}
+        local_file_map = {Path(filename).stem: filename for filename in local_files}
         local_cmd_names = set(local_file_map.keys())
 
-        # Get local files that have update marker:
         local_updateable_files: set[str] = set()
         for filename in local_files:
-            filepath = CONFIG["command_dir"] / filename
-            options = get_xcmds_options(str(filepath))
+            file_path = CONFIG["command_dir"] / filename
+            options = get_xcmds_options(file_path)
             if options.get("update_check"):
                 local_updateable_files.add(Path(filename).stem)
 
-        # Check for new files:
         if CONFIG["github_updates"]["check_for_new_commands"]:
             for cmd_name in github_files:
                 if cmd_name not in local_cmd_names:
                     result["new_commands"].append(cmd_name)
                     result["download_urls"][github_files[cmd_name]["filename"]] = github_files[cmd_name]["download_url"]
 
-        # Check for updated files (only those with update marker):
         if CONFIG["github_updates"]["check_for_command_updates"]:
             for cmd_name in local_updateable_files:
                 if cmd_name in github_files:
@@ -434,21 +489,17 @@ def get_github_diffs(local_files: set[str]) -> GithubDiffs:  # ruff:ignore[compl
                         local_filename = local_file_map[cmd_name]
                         local_path = CONFIG["command_dir"] / local_filename
 
-                        # Read as text and normalize to LF (Unix) line endings like GitHub:
-                        with open(local_path, encoding="utf-8", newline="") as f:
-                            local_content = f.read().replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+                        with open(local_path, encoding="utf-8", newline="") as file:
+                            local_content = file.read().replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
 
-                        # GitHub uses: "blob " + file size + "\0" + content then SHA1 hash:
                         local_sha = hashlib.sha1(f"blob {len(local_content)}\0".encode() + local_content).hexdigest()
 
-                        # Compare with GitHub's SHA:
                         if local_sha != github_files[cmd_name]["sha"]:
                             result["updated_commands"].append(cmd_name)
                             result["download_urls"][github_files[cmd_name]["filename"]] = github_files[cmd_name][
                                 "download_url"
                             ]
 
-        # Check for deleted files (local files with update marker not in GitHub):
         if CONFIG["github_updates"]["check_for_new_commands"]:
             for cmd_name in local_updateable_files:
                 if cmd_name not in github_files and cmd_name not in result["updated_commands"]:
@@ -457,13 +508,15 @@ def get_github_diffs(local_files: set[str]) -> GithubDiffs:  # ruff:ignore[compl
     return result
 
 
-def github_diffs_str(github_diffs: GithubDiffs) -> str:
-    """Generate a formatted string summarizing the differences found between local commands and GitHub."""
+def github_diffs_str(github_diffs: GithubDiffs) -> S:
+    """Generate a formatted S styled object summarizing differences between local commands and GitHub.\n
+    ----------------------------------------------------------------------------------------------------
+    *   `github_diffs` – Collected difference data from GitHub."""
 
     if github_diffs.get("fetch_failed", False):
-        return (
-            "[br:red]✗ Failed to fetch command updates from GitHub.\n"
-            "  [dim]Check your internet connection or configuration.[_]\n\n"
+        return S(
+            S.BR.RED("✗ Failed to fetch command updates from GitHub.\n"),
+            S.DIM("  Check your internet connection or configuration.\n\n"),
         )
 
     num_new_cmds = len(github_diffs["new_commands"])
@@ -472,16 +525,9 @@ def github_diffs_str(github_diffs: GithubDiffs) -> str:
     total_changes = num_new_cmds + num_cmd_updates + num_deleted_cmds
 
     if total_changes == 0:
-        return (
-            (
-                "[magenta](ⓘ [i](You have all available command-files"
-                f"{" and they're all up-to-date" if CONFIG['github_updates']['check_for_command_updates'] else ''}.))\n\n"
-            )
-            if CONFIG["github_updates"]["check_for_new_commands"]
-            else "[magenta](ⓘ [i](All your command-files are up-to-date.))\n\n"
-        )
+        suffix = " and they're all up-to-date." if CONFIG["github_updates"]["check_for_command_updates"] else "."
+        return S.MAGENTA("ⓘ ", S.ITALIC(f"You have all available command-files{suffix}\n\n"))
 
-    # Build title:
     title_parts: list[str] = []
     if num_new_cmds:
         title_parts.append(f"{num_new_cmds} new command{'' if num_new_cmds == 1 else 's'}")
@@ -491,79 +537,80 @@ def github_diffs_str(github_diffs: GithubDiffs) -> str:
         title_parts.append(f"{num_deleted_cmds} command deletion{'' if num_deleted_cmds == 1 else 's'}")
 
     if len(title_parts) == 1:
-        title = f"There {'is' if total_changes == 1 else 'are'} {title_parts[0]} available."
+        title_text = f"There {'is' if total_changes == 1 else 'are'} {title_parts[0]} available."
     elif len(title_parts) == 2:
-        title = f"There are {title_parts[0]} and {title_parts[1]} available."
+        title_text = f"There are {title_parts[0]} and {title_parts[1]} available."
     else:
-        title = f"There are {title_parts[0]}, {title_parts[1]}, and {title_parts[2]} available."
+        title_text = f"There are {title_parts[0]}, {title_parts[1]}, and {title_parts[2]} available."
 
-    diffs_title_len = len(title) + 5
-    diffs = (
-        f"[b|magenta|bg:magenta]([[black]⇣[magenta]][in|black]( "
-        f"{title} [bg:black]{'━' * (xx.console.get_width() - diffs_title_len)}))"
+    title: tuple[TextRenderable, TextRenderable] = (
+        (S.BOLD | S.BR.MAGENTA | S.BG.BLACK)("  ⇣  "),
+        (S.BOLD | S.hex("000") | S.BG.BR.MAGENTA)(f"  {title_text}  "),
+    )
+    banner = S(
+        "",
+        (S.BLACK("▄" * len(title[0].raw)), S.BR.MAGENTA("▄" * len(title[1].raw))),
+        (*title,),
+        (S.BLACK("▀" * len(title[0].raw)), S.BR.MAGENTA("▀" * len(title[1].raw))),
+        sep="\n",
     )
 
-    if num_new_cmds:
-        diffs += "\n\n[b](New Commands:)\n  " + "\n  ".join(
-            f"[br:green]{cmd}[_]" for cmd in sorted(github_diffs["new_commands"])
-        )
-    if num_cmd_updates:
-        diffs += "\n\n[b](Updated Commands:)\n  " + "\n  ".join(
-            f"[br:blue]{cmd}[_]" for cmd in sorted(github_diffs["updated_commands"])
-        )
-    if num_deleted_cmds:
-        diffs += "\n\n[b](Deleted Commands:)\n  " + "\n  ".join(
-            f"[br:red]{cmd}[_]" for cmd in sorted(github_diffs["deleted_commands"])
-        )
+    diff_elements: list[S] = [banner]
 
-    return diffs
+    if num_new_cmds:
+        new_items = [S.BR.GREEN(cmd) for cmd in sorted(github_diffs["new_commands"])]
+        diff_elements.append(S("\n\n", S.BOLD("New Commands:"), "\n  ", S(*new_items, sep="\n  ")))
+    if num_cmd_updates:
+        updated_items = [S.BR.BLUE(cmd) for cmd in sorted(github_diffs["updated_commands"])]
+        diff_elements.append(S("\n\n", S.BOLD("Updated Commands:"), "\n  ", S(*updated_items, sep="\n  ")))
+    if num_deleted_cmds:
+        deleted_items = [S.BR.RED(cmd) for cmd in sorted(github_diffs["deleted_commands"])]
+        diff_elements.append(S("\n\n", S.BOLD("Deleted Commands:"), "\n  ", S(*deleted_items, sep="\n  ")))
+
+    diff_elements.append(S("\n"))
+    return S(*diff_elements)
 
 
 def download_files(github_diffs: GithubDiffs) -> None:
-    """Download new and updated files from GitHub, and delete removed files."""
+    """Download new and updated files from GitHub, and delete removed files.\n
+    ----------------------------------------------------------------------------------------------------
+    *   `github_diffs` – Difference details describing downloads and deletions."""
 
-    downloads = github_diffs["download_urls"].items()
+    downloads = list(github_diffs["download_urls"].items())
     deletions = github_diffs["deleted_commands"]
     total_operations = len(downloads) + len(deletions)
 
     if total_operations == 0:
         return
 
-    if not xx.console.confirm(StyledText(S.BOLD("\nExecute these updates?")), end="\n", default_is_yes=True):
-        FormatCodes.print("[dim|magenta](✗ Not updating commands from GitHub)\n\n")
+    if not xx.console.confirm(S.BOLD("\nExecute these updates?"), end="\n", default_is_yes=False):
+        (S.DIM | S.MAGENTA)("✗ Not updating commands from GitHub\n\n").print()
         return
 
     success_count = 0
 
-    # Download new and updated files:
     for filename, url in downloads:
         try:
             response = requests.get(url, timeout=10)
             response.raise_for_status()
 
-            # Save with or without extension based on platform:
             cmd_name = Path(filename).stem
             file_path = CONFIG["command_dir"] / (filename if xx.system.is_win() else cmd_name)
+            file_path.write_text(response.text, encoding="utf-8")
 
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(response.text)
-
-            # Make executable on Unix-like systems:
             if not xx.system.is_win():
-                Path(file_path).chmod(0o755)
+                file_path.chmod(0o755)
 
             action = "Added" if cmd_name in github_diffs["new_commands"] else "Updated"
-            FormatCodes.print(f"[br:green](✓ {action} [b]({cmd_name}))")
+            S(S.BR.GREEN(f"✓ {action} "), S.BOLD(cmd_name)).print()
             success_count += 1
         except Exception as exc:
-            FormatCodes.print(f"[br:red](✗ Failed to download [b]({filename}) [dim]/({exc})[_])")
+            S(S.BR.RED("✗ Failed to download "), S.BOLD(filename), " ", (S.DIM | S.RED)(f"({exc})")).print()
 
-    # Delete removed files:
     for cmd_name in deletions:
         try:
-            # Try both with and without extension:
             deleted = False
-            for ext in [".py", ".pyw", ""]:
+            for ext in {".py", ".pyw", ""}:
                 file_path = CONFIG["command_dir"] / f"{cmd_name}{ext}"
                 if file_path.exists():
                     file_path.unlink()
@@ -571,50 +618,82 @@ def download_files(github_diffs: GithubDiffs) -> None:
                     break
 
             if deleted:
-                FormatCodes.print(f"[br:green](✓ Deleted [b]({cmd_name}))")
+                S(S.BR.GREEN("✓ Deleted "), S.BOLD(cmd_name)).print()
                 success_count += 1
             else:
-                FormatCodes.print(f"[dim|br:yellow](⚠ Could not find [b]({cmd_name}) to delete)")
+                (S.DIM | S.BR.YELLOW)("⚠ Could not find ", S.BOLD(cmd_name), " to delete").print()
         except Exception as exc:
-            FormatCodes.print(f"[br:red](✗ Failed to delete [b]({cmd_name}) [dim]/({exc})[_])")
+            S(S.BR.RED("✗ Failed to delete "), S.BOLD(cmd_name), " ", (S.DIM | S.RED)(f"({exc})")).print()
 
-    color = "br:green" if success_count == total_operations else "br:red" if success_count == 0 else "br:yellow"
-    FormatCodes.print(
-        f"\nSuccessfully completed [{color}]([b]({success_count})/{total_operations})"
-        f" operation{'s' if total_operations > 1 else ''}!\n\n"
-    )
+    color_style = S.BR.GREEN if success_count == total_operations else S.BR.RED if success_count == 0 else S.BR.YELLOW
+    S(
+        "\nSuccessfully completed ",
+        color_style(S.BOLD(str(success_count)), f"/{total_operations}"),
+        f" operation{'s' if total_operations > 1 else ''}!\n\n",
+    ).print()
+
+
+def configure_utf8_output() -> None:
+    """Ensure standard output uses UTF-8 encoding across all platforms."""
+
+    with suppress(Exception):
+        if isinstance(sys.stdout, io.TextIOWrapper):
+            sys.stdout.reconfigure(encoding="utf-8")  # pyright:ignore[reportUnknownMemberType]
 
 
 def main() -> None:
+    """Execute command summary or GitHub update check based on parsed CLI arguments."""
 
-    if ARGS.help.exists:
-        print_help()
-        return
+    configure_utf8_output()
 
     python_files = get_python_files()
-    listed_files = {file for file in python_files if not get_xcmds_options(str(CONFIG["command_dir"] / file)).get("unlisted")}
-
-    if not ARGS.update_check.exists or ARGS.list.exists:
-        FormatCodes.print(get_commands_str(listed_files, list_mode=ARGS.list.exists))
-    else:
-        print()
+    listed_files = {file for file in python_files if not get_xcmds_options(CONFIG["command_dir"] / file).get("unlisted")}
 
     if ARGS.update_check.exists:
-        throbber = Throbber(label="⟳ Checking for updates")
-        throbber.set_format(["[magenta]({l})", "[b|magenta]({a})"])
-
-        with throbber.context():
+        with Throbber(label="Checking for updates...").context():
             github_diffs = get_github_diffs(python_files)
 
-        FormatCodes.print(github_diffs_str(github_diffs))
-
+        github_diffs_str(github_diffs).print()
         download_files(github_diffs)
+        return
+
+    commands = [inspect_command_file(CONFIG["command_dir"] / filename) for filename in sorted(listed_files)]
+    raw_output = bool(ARGS.raw_output.exists)
+
+    if ARGS.as_json.exists:
+        render_json_commands(commands, raw_output=raw_output)
+    elif raw_output:
+        render_raw_commands(commands)
+    else:
+        render_styled_commands(commands)
 
 
 if __name__ == "__main__":
+    configure_utf8_output()
+
+    args = ArgumentParser(
+        title="CMDs",
+        subtitle="List and update Python command scripts",
+        controls=[("Ctrl+C", "Cancel and exit")],
+        examples=[
+            ("{cmd}", "List all commands in a compact summary format"),
+            ("{cmd} -j", "Output command summary as formatted JSON"),
+            ("{cmd} -r", "Output command summary as plain text"),
+            ("{cmd} -j -r", "Output command summary as unformatted JSON"),
+            ("{cmd} -u", "Check for and apply updates from GitHub"),
+        ],
+    )
+
+    args.add_opt({"-u", "--update"}, "update_check", help="Check GitHub for new/renamed and updated commands")
+    args.add_opt({"-j", "--json"}, "as_json", help="Output command summary as formatted JSON")
+    args.add_opt({"-r", "--raw"}, "raw_output", help="Output command summary as plain text without styling")
+
+    global ARGS
+    ARGS = args.parse()
+
     try:
         main()
     except KeyboardInterrupt:
-        print()
+        S(Term.CLEAR_LINE, S.RESET, S.BR.RED("✗ Canceled by user.")).print(end="\n\n")
     except Exception as exc:
         xx.console.fail(exc, start="\n", end="\n\n", exit_code=1)
