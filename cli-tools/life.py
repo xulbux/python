@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ruff:file-ignore[ambiguous-unicode-character-string]
-# x-cmds:file[update]
+# x-tools:file[update]
 
 """
 Conway's game of life in the console.

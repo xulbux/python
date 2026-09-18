@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# x-cmds:file[update]
+# x-tools:file[update]
 
 """
 Calculate the value of π to a specified number of decimal places.

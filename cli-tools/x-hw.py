@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# x-cmds:file[update]
+# x-tools:file[update]
 
 """
 Get detailed hardware information about your PC.
@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, TypedDict
 import xulbux as xx
 from xulbux import ArgumentParser, S
 
-# Make the `_shared` package (commands/_shared) importable when running this script directly:
+# Make the `_shared` package (cli-tools/_shared) importable when running this script directly:
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _shared.helpers import format_size

@@ -1,7 +1,7 @@
-# x-cmds:file[unlisted,update]
+# x-tools:file[unlisted,update]
 
 """
-Shared helper utilities for commands.
+Shared helper utilities for CLI tools.
 """
 
 import fnmatch

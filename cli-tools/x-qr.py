@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# x-cmds:file[update]
+# x-tools:file[update]
 
 """
 Lets you quickly generate QR codes directly within the terminal.

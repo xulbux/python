@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# x-cmds:file[update]
+# x-tools:file[update]
 
 """
 A really advanced directory tree generator
@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Literal, NamedTuple, TypedDict, cast
 import xulbux as xx
 from xulbux import ArgumentParser, S, Term, Throbber
 
-# Make the `_shared` package (commands/_shared) importable when running this script directly:
+# Make the `_shared` package (cli-tools/_shared) importable when running this script directly:
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _shared.consts import ALL_CATEGORIES, AUTO_IGNORE_FOLDERS, EXT_TO_CAT, Category

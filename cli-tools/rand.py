@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# x-cmds:file[update]
+# x-tools:file[update]
 
 """
 Generate a truly random number with a specific number of digits or within a range.

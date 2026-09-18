@@ -1,16 +1,16 @@
-# Commands
+# CLI Tools
 
 This directory contains quite a few Python files, which are supposed<br>
-to be run as commands in the terminal and do some useful stuff.
+to be run as native CLI tools in the terminal and do some useful stuff.
 
-**[Some commands described in more detail.](#cmd-details)**
+**[Some tools described in more detail.](#tool-details)**
 
 <br>
 <br>
 
-## Run the files as terminal commands
+## Run the files as native CLI tools
 
-To run these Python scripts as native commands in your terminal, follow these steps.
+To run these Python scripts as native CLI tools in your terminal, follow these steps.
 
 <br>
 
@@ -18,7 +18,7 @@ To run these Python scripts as native commands in your terminal, follow these st
 
 > [!IMPORTANT]<br>
 > Before you begin, ensure you have Python installed and **added to your system's PATH**.<br>
-> This is crucial for the commands to be recognized and executed.
+> This is crucial for the CLI tools to be recognized and executed.
 >
 > *   **Windows:** make sure to check the box `Add Python to PATH`<br>
 >     and if possible `Install for all users` during the installation of Python.<br>
@@ -31,19 +31,19 @@ To run these Python scripts as native commands in your terminal, follow these st
 
 ### Step 1: Download the Files
 
-Download the Python files you want to use, along with the <a title="Click to download" href="https://git-link.vercel.app/api/download?url=https://github.com/xulbux/python/blob/main/commands/requirements.txt">**`requirements.txt`**</a> file.<br>
-Place them all in a single, permanent directory on your computer. We'll call this your *commands-directory*.
+Download the Python files you want to use, along with the <a title="Click to download" href="https://git-link.vercel.app/api/download?url=https://github.com/xulbux/python/blob/main/cli-tools/requirements.txt">**`requirements.txt`**</a> file.<br>
+Place them all in a single, permanent directory on your computer. We'll call this your *cli-tools-directory*.
 
 > [!IMPORTANT]<br>
 > The way you prepare the files depends on your operating system:
 >
 > *   **Windows:** You can leave the `.py` or `.pyw` extension on the files.<br>
 >     As long as both `PY` and `PYW` are in your system's `PATHEXT` environment variable<br>
->     (*which is the default*), you can run the commands without typing `.py`.
+>     (*which is the default*), you can run the tools without typing `.py`.
 >
 > *   **macOS and Linux:** You **must remove the `.py` or `.pyw` extension** from the script files.<br>
->     For example, rename `x-cmds.py` to `x-cmds`.<br>
->     This allows the operating system to execute them as native commands.
+>     For example, rename `x-tools.py` to `x-tools`.<br>
+>     This allows the operating system to execute them as native CLI tools.
 
 <br>
 
@@ -54,10 +54,10 @@ Place them all in a single, permanent directory on your computer. We'll call thi
 Before the scripts can run, you need to install their required Python packages. 📦
 
 1.  Open your terminal.
-2.  Navigate to your *commands-directory* using the `cd` command.
+2.  Navigate to your *cli-tools-directory* using the `cd` command.
 
     ```bash
-    cd "/path/to/your/commands-directory"
+    cd "/path/to/your/cli-tools-directory"
     ```
 
 3.  Install the dependencies using pip:
@@ -68,17 +68,17 @@ Before the scripts can run, you need to install their required Python packages. 
 
 <br>
 
-### Step 3: Make Scripts Executable as Commands
+### Step 3: Make Scripts Executable as CLI Tools
 
-This makes your commands available from any location in your terminal. ⚙️
+This makes your tools available from any location in your terminal. ⚙️
 
 #### Windows:
 
-*   **Add the *commands-directory* to your system's `Path` environment variable:**
+*   **Add the *cli-tools-directory* to your system's `Path` environment variable:**
     1.  Open the Start Menu, search for "Environment Variables", and select `Edit the system environment variables`.
     2.  In the `System Properties` window, click `Environment Variables…`.
     3.  Under the `System variables` section, find and select the `Path` variable, then click `Edit…`.
-    4.  Click `New` and paste in the absolute path to your *commands-directory*.
+    4.  Click `New` and paste in the absolute path to your *cli-tools-directory*.
     5.  Click `OK` to close all dialogs.
 *   **Assure correct file associations for `.py` and `.pyw` files:**
     1.  In the File Explorer, right-click on any `.py` file and select `Open with` > `Choose another app`.
@@ -95,7 +95,7 @@ This makes your commands available from any location in your terminal. ⚙️
 *   **Make the files executable:** Open your terminal and run the following command, replacing the path with your own:
 
     ```bash
-    chmod +x "/path/to/your/commands-directory/*"
+    chmod +x "/path/to/your/cli-tools-directory/*"
     ```
 
 *   **Add the directory to your terminal's PATH:**
@@ -104,7 +104,7 @@ This makes your commands available from any location in your terminal. ⚙️
     3.  Open the file (*e.g.,* `nano ~/.zshrc`) and add this line to the end:
 
         ```bash
-        export PATH="$PATH:/path/to/your/commands-directory"
+        export PATH="$PATH:/path/to/your/cli-tools-directory"
         ```
 
     4.  Save the file, and then apply the changes by running `source ~/.zshrc` (*or the file you edited*).
@@ -114,45 +114,45 @@ This makes your commands available from any location in your terminal. ⚙️
 ### Step 4: Restart your Terminal
 
 Close and reopen your terminal.<br>
-The changes are now active, and you can run the files by typing their names (*e.g.,* [`x-cmds`](#x-cmds)). ✅
+The changes are now active, and you can run the files by typing their names (*e.g.,* [`x-tools`](#x-tools)). ✅
 
 <br>
 <br>
 
-<span id="cmd-details" />
+<span id="tool-details" />
 
-## Some Commands in More Detail
+## Some Tools in More Detail
 
-Run any command with `-h` or `--help` to see its full usage information.<br>
+Run any tool with `-h` or `--help` to see its full usage information.<br>
 **⇾** Each process can be canceled by pressing `Ctrl + C`.
 
 > [!NOTE]<br>
 > If any of the scripts stop working (*especially after updating*), ensure all dependencies are up-to-date.<br>
-> Download the latest <a title="Click to download" href="https://git-link.vercel.app/api/download?url=https://github.com/xulbux/python/blob/main/commands/requirements.txt">**`requirements.txt`**</a> and follow the [**Install Dependencies**](#install-deps) steps again.
+> Download the latest <a title="Click to download" href="https://git-link.vercel.app/api/download?url=https://github.com/xulbux/python/blob/main/cli-tools/requirements.txt">**`requirements.txt`**</a> and follow the [**Install Dependencies**](#install-deps) steps again.
 
 <br>
 
-### `x-cmds`
+### `x-tools`
 
-This command outputs a list of all custom Python commands in the current directory,<br>
+This tool outputs a list of all custom Python CLI tools in the current directory,<br>
 with a short description (*if provided*) and their params (*if found*).
 
 ⇾ To adjust some update-checking-options, you can edit the `CONFIG` variable, inside the script file.
 
 #### How the Update System Works
 
-The update system is designed to keep managed commands up-to-date while protecting your custom files:
+The update system is designed to keep managed tools up-to-date while protecting your custom files:
 
-*   **Managed Commands:** Only files with the comment `# x-cmds:file[update]` at the top (*after the shebang*) are checked for updates.<br>
-    These commands can be automatically updated or deleted if they're removed from the repository.
+*   **Managed Tools:** Only files with the comment `# x-tools:file[update]` at the top (*after the shebang*) are checked for updates.<br>
+    These tools can be automatically updated or deleted if they're removed from the repository.
 
-*   **User Commands:** Files **without** the `# x-cmds:file[update]` marker are considered user-created and<br>
-    will **never** be modified or deleted by the update system, keeping your own custom commands safe.
+*   **User Tools:** Files **without** the `# x-tools:file[update]` marker are considered user-created and<br>
+    will **never** be modified or deleted by the update system, keeping your own custom tools safe.
 
 *   **Update Detection:** The system checks multiple GitHub repository URLs (*configurable in the script*),<br>
-    merges all available commands, and detects three types of changes:
-    -   **New commands** – Available in the repository but not locally.
-    -   **Updated commands** – Local managed commands with content changes.
-    -   **Deleted commands** – Local managed commands no longer in any repository.
+    merges all available tools, and detects three types of changes:
+    -   **New tools** – Available in the repository but not locally.
+    -   **Updated tools** – Local managed tools with content changes.
+    -   **Deleted tools** – Local managed tools no longer in any repository.
 
-This approach allows you to safely add your own commands to the directory while still benefiting from automatic updates.
+This approach allows you to safely add your own tools to the directory while still benefiting from automatic updates.

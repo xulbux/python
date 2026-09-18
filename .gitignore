@@ -6,7 +6,7 @@ __pypackages__/
 .venv/
 *.egg-info/
 /build/
-/commands/backups/
+/cli-tools/backups/
 /dist/
 
 *.py[cdio]

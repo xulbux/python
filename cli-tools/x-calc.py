@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ruff:file-ignore[complex-structure, ambiguous-unicode-character-string]
-# x-cmds:file[update]
+# x-tools:file[update]
 
 """
 Do advanced calculations from the command line.

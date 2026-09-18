@@ -1,7 +1,7 @@
-# x-cmds:file[unlisted,update]
+# x-tools:file[unlisted,update]
 
 """
-Shared constants, file extensions, and auto-ignore rules for commands.
+Shared constants, file extensions, and auto-ignore rules for CLI tools.
 """
 
 import fnmatch

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# x-cmds:file[update]
+# x-tools:file[update]
 """
 Quickly and accurately count lines of code in a directory or project.
 """
@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, NamedTuple
 import xulbux as xx
 from xulbux import ArgumentParser, S, Term, Throbber
 
-# Make the `_shared` package (commands/_shared) importable when running this script directly:
+# Make the `_shared` package (cli-tools/_shared) importable when running this script directly:
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _shared.consts import EXACT_IGNORE_NAMES, NON_TEXT_EXTS, PATH_IGNORE_PARTS, WILDCARD_IGNORE_NAMES
@@ -472,7 +472,7 @@ def scan_directory(target_dir: Path) -> ScanResult:
 
 
 def main() -> None:
-    """Execute the lines of code counter command."""
+    """Execute the lines of code counter tool."""
 
     target_path = ARGS.target_dir.val(Path, default=Path.cwd())
 

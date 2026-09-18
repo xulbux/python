@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ruff:file-ignore[ambiguous-unicode-character-string]
-# x-cmds:file[update]
+# x-tools:file[update]
 
 """
 Play a maze game in the console.
@@ -20,7 +20,7 @@ import xulbux as xx
 from xulbux import ArgumentParser, S, Throbber
 from xulbux.base.consts import KEYS
 
-# Make the `_shared` package (commands/_shared) importable when running this script directly:
+# Make the `_shared` package (cli-tools/_shared) importable when running this script directly:
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from typing import TYPE_CHECKING

@@ -4,7 +4,7 @@ typeCheckingMode = "strict"
 reportDeprecated = "warning"
 reportPrivateUsage = "warning"
 enableTypeIgnoreComments = false
-include = ["apps", "commands", "prankware"]
+include = ["apps", "cli-tools", "prankware"]
 exclude = ["**/__pycache__", ".agents", ".github", ".venv"]
 
 [tool.ruff]
