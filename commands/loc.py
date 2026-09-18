@@ -725,7 +725,7 @@ def main() -> None:
     file_count_formatted = f"{scan_result.total_files:,}"
     files_label = f"({file_count_formatted} file)" if scan_result.total_files == 1 else f"({file_count_formatted} files)"
 
-    banner_content = S((S.INVERSE | S.BG.BLACK)(S.BOLD(f"{scan_result.total_lines:,}"), " total lines  ", files_label))
+    banner_content = S((S.INVERSE | S.BG.hex("000"))(S.BOLD(f"{scan_result.total_lines:,}"), " total lines  ", files_label))
 
     S(
         Term.CLEAR_LINE,

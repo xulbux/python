@@ -1,16 +1,13 @@
-# Compiled files & caches
 __pycache__/
 __pypackages__/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
+.venv/
+*.egg-info/
+/build/
+/commands/backups/
+/dist/
+
 *.py[cdio]
 *$py.class
-
-# Build artifacts
-*.egg-info/
-build/
-dist/
-
-# Virtual environments
-.venv/

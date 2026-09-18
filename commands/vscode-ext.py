@@ -110,7 +110,9 @@ def main() -> None:
 
     extensions = cast("list[str]", get_vscode_extensions(executable))
 
-    title = (S.INVERSE | S.BG.BLACK)("  Found ", S.BOLD(str(len(extensions))), f" installed {variant_display} extensions  ")
+    title = (S.INVERSE | S.BG.hex("000"))(
+        "  Found ", S.BOLD(str(len(extensions))), f" installed {variant_display} extensions  "
+    )
 
     S(
         "",

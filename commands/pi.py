@@ -215,7 +215,7 @@ def main() -> None:
 
     if (estimated_secs := estimate_runtime(input_k)) >= 604800:
         S(
-            (S.BOLD | S.BG.BLACK)("\n π ", S.INVERSE(" Calculation would take too long \n")),
+            (S.BOLD | S.BG.hex("000"))("\n π ", S.INVERSE(" Calculation would take too long \n")),
             (f"\n{format_time(estimated_secs, pretty_print=True)}\n", S.RESET),
         ).print()
 
@@ -232,7 +232,9 @@ def main() -> None:
         except MemoryError:
             S(
                 (S.BOLD | S.BR.YELLOW)("\rYour computer doesn't have enough memory for this calculation!"),
-                (S.BOLD | S.BG.BLACK)("\n π ", S.INVERSE(" Calculation would take this long if you had enough memory \n")),
+                (S.BOLD | S.BG.hex("000"))(
+                    "\n π ", S.INVERSE(" Calculation would take this long if you had enough memory \n")
+                ),
                 (format_time(estimated_secs, pretty_print=True), S.RESET, "\n"),
                 sep="\n",
             ).print()

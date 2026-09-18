@@ -449,7 +449,7 @@ def path_validator(path: str) -> str | None:
 def main() -> None:
     """Main force remove entry point."""
 
-    S("\n", (S.BOLD | S.BG.BLACK)(f" {platform.system()} ", S.INVERSE(" FORCE DELETE UTILITY "))).print()
+    S("\n", (S.BOLD | S.BG.hex("000"))(f" {platform.system()} ", S.INVERSE(" FORCE DELETE UTILITY "))).print()
     xx.console.box(
         "This will terminate processes if needed.",
         "Critical system processes are protected.",
@@ -493,6 +493,7 @@ if __name__ == "__main__":
     args = ArgumentParser(
         title="Force Remove",
         subtitle="Delete files/directories even if they are locked",
+        controls=[("Ctrl+C", "Cancel and exit")],
         examples=[
             ('{cmd} "/path/to/directory"', "Delete a directory"),
             ('{cmd} -y="/path/to/file.txt"', "Delete a file, skipping confirmation"),
