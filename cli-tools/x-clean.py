@@ -9,7 +9,7 @@ import contextlib
 import json
 import os
 import subprocess
-import winreg
+import sys
 from contextlib import suppress
 from datetime import datetime
 from pathlib import Path
@@ -17,12 +17,15 @@ from typing import TYPE_CHECKING, Any
 import xulbux as xx
 from xulbux import ArgumentParser, S, Throbber
 
+if sys.platform != "win32":
+    xx.console.fail("x-clean is a Windows-only tool.", start="\n", end="\n\n", exit_code=1)
+
+import winreg
+
 if TYPE_CHECKING:
     from ._shared.helpers import format_size
 
     from xulbux.ansi import TextRenderable
-
-import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _shared.helpers import format_size
