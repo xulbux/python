@@ -8,6 +8,7 @@ import fnmatch
 import os
 import re
 import stat
+import sys
 from contextlib import suppress
 from functools import lru_cache
 from pathlib import Path
@@ -102,7 +103,7 @@ def is_hidden_entry(entry: os.DirEntry[str]) -> bool:
     if entry.name.startswith("."):
         return True
 
-    if os.name == "nt":
+    if sys.platform == "win32":
         with suppress(AttributeError, OSError):
             file_attrs = entry.stat(follow_symlinks=False).st_file_attributes
             if entry.is_dir(follow_symlinks=False):
@@ -135,7 +136,7 @@ def compile_glob_patterns(patterns: list[str]) -> list[tuple[re.Pattern[str], bo
     *   `patterns` – List of glob pattern strings."""
 
     compiled: list[tuple[re.Pattern[str], bool]] = []
-    pattern_flags = re.IGNORECASE if os.name == "nt" else 0
+    pattern_flags = re.IGNORECASE if sys.platform == "win32" else 0
 
     for pattern in patterns:
         if not (clean_pattern := pattern.replace("\\", "/").strip()):
@@ -194,7 +195,7 @@ class GitIgnoreRule:
         self.anchored = "/" in (clean_pattern := pattern_str.rstrip("/")).lstrip("/") or clean_pattern.startswith("/")
         self.regex = re.compile(
             fnmatch.translate(clean_pattern.lstrip("/") if self.anchored else clean_pattern),
-            re.IGNORECASE if os.name == "nt" else 0,
+            re.IGNORECASE if sys.platform == "win32" else 0,
         )
 
     def matches(self, target_full_posix: str, name: str, is_dir: bool) -> bool | None:

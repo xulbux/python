@@ -7,11 +7,10 @@ the option to directly format them as a JSON list.
 """
 
 import os
-import platform
 import subprocess
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 import xulbux as xx
 from xulbux import ArgumentParser, S
 
@@ -28,9 +27,8 @@ def get_common_vscode_locations() -> list[tuple[str, str]]:
     """Returns a list of `(executable_name, path)` tuples for common VS Code locations."""
 
     locations: list[tuple[str, str]] = []
-    system = platform.system()
 
-    if system == "Windows":
+    if sys.platform == "win32":
         localappdata = os.environ.get("LOCALAPPDATA", "")
         programfiles = os.environ.get("PROGRAMFILES", "")
         programfiles_x86 = os.environ.get("PROGRAMFILES(X86)", "")
@@ -53,7 +51,7 @@ def get_common_vscode_locations() -> list[tuple[str, str]]:
             ])
         # fmt: on
 
-    elif system == "Darwin":
+    elif sys.platform == "darwin":
         # fmt: off
         # ruff:ignore[line-too-long]
         locations.extend([
@@ -66,7 +64,7 @@ def get_common_vscode_locations() -> list[tuple[str, str]]:
         ])
         # fmt: on
 
-    elif system == "Linux":
+    elif sys.platform == "linux":
         locations.extend([
             ("code", "/usr/bin/code"),
             ("code-insiders", "/usr/bin/code-insiders"),
@@ -86,7 +84,7 @@ def find_vscode_executable() -> tuple[str, str] | None:
     # First, try to find in `PATH` env variable:
     for variant in ["code", "code-insiders"]:
         try:
-            command = "where" if platform.system() == "Windows" else "which"
+            command = "where" if sys.platform == "win32" else "which"
             result = subprocess.run([command, variant], capture_output=True, check=True, text=True)
             if executable := result.stdout.strip().split("\n")[0]:  # Get first result.
                 return (variant, executable)
@@ -101,12 +99,23 @@ def find_vscode_executable() -> tuple[str, str] | None:
     return None
 
 
-def get_vscode_extensions(executable: str) -> list[str] | None:
+def get_vscode_extensions(executable: str) -> list[str]:
+    """Retrieves all installed VS Code extensions via the CLI.\n
+    ----------------------------------------------------------------------------------------------------
+    *   `executable` – Path or command name of the VS Code executable."""
+
     try:
-        result = subprocess.run([executable, "--list-extensions"], capture_output=True, text=True, shell=True)
+        result = subprocess.run(
+            [executable, "--list-extensions"],
+            capture_output=True,
+            check=True,
+            text=True,
+            shell=sys.platform == "win32",
+        )
         return result.stdout.strip().splitlines()
+
     except subprocess.CalledProcessError as exc:
-        xx.console.fail(f"Failed to get extensions: {exc.stderr}")
+        xx.console.fail(f"Failed to get extensions: {exc.stderr}", exit_code=1)
 
 
 def main() -> None:
@@ -117,7 +126,7 @@ def main() -> None:
     variant, executable = vscode_info
     variant_display = "VS Code Insiders" if variant == "code-insiders" else "VS Code"
 
-    extensions = cast("list[str]", get_vscode_extensions(executable))
+    extensions = get_vscode_extensions(executable)
 
     if ARGS.as_json.exists:
         print_json(extensions, raw=ARGS.raw_output.exists)

@@ -59,7 +59,7 @@ class HardwareInfo:
         """Get basic system information."""
 
         info: dict[str, Any] = {
-            "os": platform.system(),
+            "os": sys.platform,
             "os_version": platform.version(),
             "os_release": platform.release(),
             "architecture": platform.machine(),
@@ -157,9 +157,7 @@ class HardwareInfo:
 
         info: dict[str, Any] = {"gpus": []}
 
-        system = platform.system()
-
-        if system == "Windows":
+        if sys.platform == "win32":
             with suppress(Exception):
                 result = subprocess.run(
                     ["wmic", "path", "win32_VideoController", "get", "name"], capture_output=True, text=True, timeout=5
@@ -171,7 +169,7 @@ class HardwareInfo:
                         if gpu_name:
                             info["gpus"].append({"name": gpu_name})
 
-        elif system == "Linux":
+        elif sys.platform == "linux":
             with suppress(Exception):
                 # Try `lspci` for GPU info:
                 result = subprocess.run(["lspci"], capture_output=True, text=True, timeout=5)
@@ -182,7 +180,7 @@ class HardwareInfo:
                             if match:
                                 info["gpus"].append({"name": match.group(1).strip()})
 
-        elif system == "Darwin":  # macOS
+        elif sys.platform == "darwin":  # macOS
             with suppress(Exception):
                 result = subprocess.run(["system_profiler", "SPDisplaysDataType"], capture_output=True, text=True, timeout=5)
                 if result.returncode == 0:

@@ -7,9 +7,9 @@ Force delete files or directories, even if they are locked by processes.
 
 import contextlib
 import os
-import platform
 import shutil
 import subprocess
+import sys
 import time
 from contextlib import suppress
 from pathlib import Path
@@ -68,9 +68,9 @@ PROTECTED_PROCESSES_UNIX = {
 def get_protected_processes() -> set[str]:
     """Get the appropriate protected processes list for the current OS."""
 
-    if (system := platform.system()) == "Windows":
+    if sys.platform == "win32":
         return PROTECTED_PROCESSES_WINDOWS
-    elif system == "Darwin":  # macOS
+    elif sys.platform == "darwin":  # macOS
         return PROTECTED_PROCESSES_UNIX | PROTECTED_PROCESSES_MACOS
     else:  # Unix-like
         return PROTECTED_PROCESSES_UNIX
@@ -88,7 +88,7 @@ def take_ownership_windows(path: Path) -> bool:
             capture_output=True,
             text=True,
             timeout=60,
-            creationflags=(subprocess.CREATE_NO_WINDOW if platform.system() == "Windows" else 0),
+            creationflags=(subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0),
         )
 
         if result.returncode != 0:
@@ -201,16 +201,15 @@ def unlock_file_macos(path: Path) -> bool:
 def try_advanced_deletion_techniques(path: Path) -> bool:
     """Try advanced OS-specific deletion techniques."""
 
-    system = platform.system()
     success = False
 
-    if system == "Windows":
+    if sys.platform == "win32":
         if remove_attributes_windows(path):
             success = True
         if take_ownership_windows(path):
             success = True
 
-    elif system == "Darwin":  # macOS
+    elif sys.platform == "darwin":  # macOS
         if unlock_file_macos(path):
             success = True
         if change_permissions_unix(path):
@@ -227,7 +226,6 @@ def find_processes_using_path(path: Path) -> list[psutil.Process]:
     """Find all processes that have handles to the given path."""
 
     processes: list[psutil.Process] = []
-    system = platform.system()
     path = path.resolve()
 
     for proc in psutil.process_iter(["pid", "name", "open_files", "cwd", "exe"]):
@@ -241,7 +239,7 @@ def find_processes_using_path(path: Path) -> list[psutil.Process]:
                         break
 
             # On Unix systems, also check current working directory:
-            if system != "Windows":
+            if sys.platform != "win32":
                 with suppress(psutil.AccessDenied, psutil.NoSuchProcess):
                     if (
                         (path_str := str(path).lower()) in (cwd_str := proc.cwd().lower()) or cwd_str in path_str
@@ -266,7 +264,7 @@ def is_protected_process(proc: psutil.Process) -> bool:
             return True
 
         # For Unix systems, also check without extension and base name:
-        if platform.system() != "Windows":
+        if sys.platform != "win32":
             base_name = Path(name).name
             if base_name in protected_set:
                 return True
@@ -276,7 +274,7 @@ def is_protected_process(proc: psutil.Process) -> bool:
             return True
 
         # On Unix, protect processes owned by root running critical services:
-        if platform.system() != "Windows":
+        if sys.platform != "win32":
             with suppress(psutil.AccessDenied, psutil.NoSuchProcess):
                 if proc.username() == "root" and proc.pid < 1000:
                     return True
@@ -340,7 +338,7 @@ def attempt_deletion(path: Path) -> bool:
         (S.BOLD | S.YELLOW)("⚠ Permission denied!").print()
     except OSError as exc:
         # On Unix systems, we might get different errors:
-        if platform.system() != "Windows":
+        if sys.platform != "win32":
             S.YELLOW(S.BOLD("⚠ Deletion blocked:\n"), "  ", str(exc).replace("\n", "\n  ")).print()
         else:
             S.RED(S.BOLD("✗ Error during deletion:\n"), "  ", str(exc).replace("\n", "\n  ")).print()
@@ -424,7 +422,7 @@ def force_delete(path: Path) -> bool:  # ruff:ignore[complex-structure]
     (S.BOLD | S.RED)("\n✗ Failed to delete even after trying all techniques :(\n").print()
 
     if not xx.system.is_elevated():
-        if platform.system() == "Windows":
+        if sys.platform == "win32":
             (S.DIM | S.BLUE)("ⓘ ", S.ITALIC("Try running with Administrator privileges.\n")).print()
         else:
             (S.DIM | S.BLUE)("ⓘ ", S.ITALIC("Try running with sudo for elevated privileges.\n")).print()
@@ -449,7 +447,7 @@ def path_validator(path: str) -> str | None:
 def main() -> None:
     """Main force remove entry point."""
 
-    S("\n", (S.BOLD | S.BG.hex("000"))(f" {platform.system()} ", S.INVERSE(" FORCE DELETE UTILITY "))).print()
+    S("\n", (S.BOLD | S.BG.hex("000"))(f" {sys.platform} ", S.INVERSE(" FORCE DELETE UTILITY "))).print()
     xx.console.box(
         "This will terminate processes if needed.",
         "Critical system processes are protected.",
@@ -458,7 +456,7 @@ def main() -> None:
     )
 
     if not xx.system.is_elevated():
-        if platform.system() == "Windows":
+        if sys.platform == "win32":
             S.YELLOW("\n⚠ Not running as Administrator. Some operations may fail.").print()
         else:
             S(

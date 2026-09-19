@@ -59,7 +59,7 @@ def main() -> None:  # ruff:ignore[complex-structure]
     keep_ansi = bool(ARGS.ansi)
 
     # Properly construct command string for the shell:
-    if platform.system() == "Windows":
+    if sys.platform == "win32":
         # On Windows, use PowerShell-style command with `-command` flag:
         escaped_args: list[str] = []
         for arg in command_args:
@@ -93,7 +93,7 @@ def main() -> None:  # ruff:ignore[complex-structure]
             "text": True,
         }
 
-        if platform.system() == "Windows":
+        if sys.platform == "win32":
             process = subprocess.Popen(
                 [
                     "pwsh.exe" if shutil.which("pwsh") else "powershell.exe",
@@ -151,7 +151,7 @@ def main() -> None:  # ruff:ignore[complex-structure]
     if not exclude_cmd:
         clipboard_parts.append(
             ("Administrator" if xx.system.is_elevated() else xx.system.get_username())
-            + f" on {platform.node()} ({platform.system()})"
+            + f" on {platform.node()} ({sys.platform})"
             f" at {'~' if (cwd := Path.cwd()).expanduser() == Path.home() else cwd}\n"
             f"$ {command_str_display}\n\n"
         )

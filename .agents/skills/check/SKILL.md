@@ -52,7 +52,7 @@ All code must be reliable across platforms without platform-dependent crashes:
     *   Always place imports for OS-specific libraries inside platform-specific branches (`if sys.platform == "win32":`).
 2.  **`pathlib.Path` on Unix:**
     *   Python 3.14+ prevents instantiating `WindowsPath` on POSIX systems.
-    *   Do NOT instantiate Windows paths or monkeypatch `os.name = "nt"` when running on POSIX systems.
+    *   Do NOT instantiate Windows paths or monkeypatch `sys.platform == "win32"` when running on POSIX systems.
 3.  **Cover Both Platform Branches:**
     *   Ensure both Windows (`nt`, `win32`, drive letters) and POSIX (`posix`, `linux`, `darwin`, root slashes) paths and behaviors are properly handled.
 
