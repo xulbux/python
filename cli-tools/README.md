@@ -96,7 +96,6 @@ It scans your *cli-tools-directory* and automatically creates an alias for each 
     *   **Fish:** edit `~/.config/fish/config.fish`
 
 2.  Add the loader function for your shell to the end of the file:
-    > [!TIP]<br>
     > Adjust `py_tool_dir` to your actual *cli-tools-directory* path (shown relative to `$HOME`).<br>
     > `py_venv_bin` is automatically derived from it to point to your `.venv` Python binary.
 
