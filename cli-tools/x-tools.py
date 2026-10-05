@@ -551,13 +551,13 @@ def github_diffs_str(github_diffs: GithubDiffs) -> S:
 
     if num_new_tools:
         new_items = [S.BR.GREEN(tool) for tool in sorted(github_diffs["new_tools"])]
-        diff_elements.append(S("\n\n", S.BOLD("New Tools:"), "\n  ", S(*new_items, sep="\n  ")))
+        diff_elements.append(S("\n\n", S.BOLD("Additions:"), "\n  ", S(*new_items, sep="\n  ")))
     if num_tool_updates:
         updated_items = [S.BR.BLUE(tool) for tool in sorted(github_diffs["updated_tools"])]
-        diff_elements.append(S("\n\n", S.BOLD("Updated Tools:"), "\n  ", S(*updated_items, sep="\n  ")))
+        diff_elements.append(S("\n\n", S.BOLD("Updates:"), "\n  ", S(*updated_items, sep="\n  ")))
     if num_deleted_tools:
         deleted_items = [S.BR.RED(tool) for tool in sorted(github_diffs["deleted_tools"])]
-        diff_elements.append(S("\n\n", S.BOLD("Deleted Tools:"), "\n  ", S(*deleted_items, sep="\n  ")))
+        diff_elements.append(S("\n\n", S.BOLD("Deletions:"), "\n  ", S(*deleted_items, sep="\n  ")))
 
     diff_elements.append(S("\n"))
     return S(*diff_elements)
@@ -575,7 +575,7 @@ def download_files(github_diffs: GithubDiffs) -> None:
     if total_operations == 0:
         return
 
-    if not xx.console.confirm(S.BOLD("\nExecute these updates?"), end="\n", default_is_yes=False):
+    if not xx.console.confirm(S.BOLD("\nPerform these actions?"), end="\n", default_is_yes=False):
         (S.DIM | S.MAGENTA)("✗ Not updating tools from GitHub\n\n").print()
         return
 
